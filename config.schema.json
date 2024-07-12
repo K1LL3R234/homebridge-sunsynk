@@ -1,0 +1,61 @@
+{
+    "pluginAlias": "Sunsynk",
+    "pluginType": "platform",
+    "singular": true,
+    "headerDisplay": "Sunsynk Homebridge plugin.",
+    "footerDisplay": "Developed by Chris Posthumus",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "title": "Name",
+                "type": "string",
+                "required": true,
+                "default": "Sunsynk Inverter",
+                "description": "You shouldn't need to change this."
+            },
+            "options": {
+                "title": "",
+                "type": "object",
+                "required": true,
+                "properties": {
+                    "username": {
+                        "title": "Username",
+                        "type": "string",
+                        "required": true
+                    },
+                    "password": {
+                        "title": "Password",
+                        "type": "string",
+                        "required": true
+                    },
+                    "appKey": {
+                        "title": "App Key",
+                        "type": "string",
+                        "required": true,
+                        "default": "204013305"
+                    },
+                    "appSecret": {
+                        "title": "App Secret",
+                        "type": "string",
+                        "required": true,
+                        "default": "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm"
+                    },
+                    "debug": {
+                        "title": "Enable Debug Logging",
+                        "type": "boolean",
+                        "default": false,
+                        "required": true
+                    }
+                }
+            }
+        }
+    },
+    "form": [
+        "name",
+        "appKey",
+        "appSecret",
+        "username",
+        "password"
+    ]
+}
