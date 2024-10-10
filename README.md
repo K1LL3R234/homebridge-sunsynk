@@ -1,8 +1,13 @@
-# homebridge-Sunsynk
- Sunsynk inveter plugin
+[![npm](https://badgen.net/npm/v/homebridge-sunsynk/latest)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![npm](https://badgen.net/npm/v/homebridge-sunsynk)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![npm](https://badgen.net/npm/dt/homebridge-sunsynk)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![GitHub last commit](https://badgen.net/github/last-commit/K1LL3R234/homebridge-sunsynk)](https://github.com/K1LL3R234/homebridge-sunsynk)
+# homebridge-sunsynk
+ Sunsynk Inveter plugin
 
-A plugin for [Homebridge](https://github.com/nfarina/homebridge) that creates HomeKit motion, contact, smoke, or carbon monoxide sensors for alarm zones from a Sunsynk inverter the e-linter API. homebridge-Sunsynk was originated by [Chris Posthumus](https://github.com/k1ll3r234).
+A plugin for [Homebridge](https://github.com/nfarina/homebridge) that connects to your Sunsynk Inverter with Homekit. The plugin provides three key sensors:  Current Power Production (in Watts), Today's Yield (in kWh), This Month's Yield (in kWh), This Year's Yield (in kWh), and the Total Yield (in kWh). With these sensors, you can effortlessly create automations in your Apple Home based on your solar panel yield, power usage and battery status for a Sunsynk inverter and the e-linter API. homebridge-sunsynk was originated by [Chris Posthumus](https://github.com/k1ll3r234).
 
+From here.........
 You can receive notifications, which can be set to work only when you're away from home:
 
 ![example of notifications](https://github.com/K1LL3R234/homebridge-texecom/blob/master/images/example-notifications.jpg?raw=true)

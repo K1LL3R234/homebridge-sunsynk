@@ -1,42 +1,53 @@
 {
-  "name": "homebridge-sunsynk-platform",
-  "version": "1.0.1",
-  "description": "Homebridge plugin for Sunsynk Inverters.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": " homebridge -D -U ./config/ -P ./"
-  },
-  "keywords": [
-    "homebridge-plugin"
-  ],
-  "author": "Chris Posthumus",
-  "license": "MIT",
-  "homepage": "https://github.com/K1LL3R234/homebridge-Sunsynk",
-  "engines": {
-    "node": ">=0.12.0",
-    "homebridge": ">=0.2.0"
-  },
-  "dependencies": {
-    "@clubedaentrega/cipher": "^1.0.0",
-    "aes-decrypter": "^3.1.2",
-    "axios": "^0.21.1",
-    "chai": "^4.3.4",
-    "crypto-js": "^4.0.0",
-    "js-base64": "^3.6.1",
-    "mqtt": "^4.2.6",
-    "string-cipher": "^1.0.8",
-    "text-encoding": "^0.7.0",
-    "uuid": "^8.3.2"
-  },
-  "directories": {
-    "lib": "lib"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/K1LL3R234/homebridge-Sunsynk.git"
-  },
-  "bugs": {
-    "url": "https://github.com/K1LL3R234/homebridge-Sunsynk/issues"
-  }
+    "displayName": "Homebridge Sunsynk",
+    "name": "homebridge-sunsynk",
+    "description": "A plugin for homebridge (https://github.com/nfarina/homebridge) to integrate Sunsynk inverter into HomeKit",
+    "version": "1.0.0-beta.1",
+    "author": {
+        "name": "Chris Posthumus",
+        "email": "chris.posthumus@gmail.com"
+    },
+    "homepage": "https://github.com/K1LL3R234/homebridge-sunsynk",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/K1LL3R234/homebridge-sunsynk.git"
+    },
+    "bugs": {
+        "url": "https://https://github.com/K1LL3R234/homebridge-sunsynk/issues"
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/K1LL3R234"
+        },
+        {
+            "type": "paypal",
+            "url": "https://www.paypal.me/chrisposthumus"
+        }
+    ],
+    "license": "MIT",
+    "preferGlobal": true,
+    "keywords": [
+        "homebridge-plugin",
+        "inverter",
+        "Sunsynk"
+    ],
+    "engines": {
+        "homebridge": "^1.6.0 || ^2.0.0-beta.0",
+        "node": "^18.20.4 || ^20.15.1",
+        "python": ">=3.6.0"
+    },
+    "homebridge": {
+        "platforms": [
+            "Sunsynk"
+        ]
+    },
+    "dependencies": {
+        "axios": "^0.21.1",
+        "crypto-js": "^4.2.0",
+        "debug": "^2.6.9",
+        "serialport": "^8.0.8",
+        "string": "^3.3.3",
+        "zpad": "^0.5.0"
+    }
 }

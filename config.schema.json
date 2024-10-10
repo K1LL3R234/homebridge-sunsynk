@@ -29,18 +29,6 @@
                         "type": "string",
                         "required": true
                     },
-                    "appKey": {
-                        "title": "App Key",
-                        "type": "string",
-                        "required": true,
-                        "default": "204013305"
-                    },
-                    "appSecret": {
-                        "title": "App Secret",
-                        "type": "string",
-                        "required": true,
-                        "default": "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm"
-                    },
                     "debug": {
                         "title": "Enable Debug Logging",
                         "type": "boolean",
@@ -53,8 +41,6 @@
     },
     "form": [
         "name",
-        "appKey",
-        "appSecret",
         "username",
         "password"
     ]

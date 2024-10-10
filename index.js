@@ -1,126 +1,108 @@
-const request = require('request-promise');
-const crypto = require('crypto');
+var Service;
+var Characteristic;
+var Accessory;
+var crypto = require("crypto");
 const CryptoJS = require('crypto-js');
+
+const SunsynkAPI = require("./lib/sunsynkAPI");
 
 const LogUtil = require('./util/logutil');
 
-
-let Service, Characteristic;
-
-module.exports = (homebridge) => {
+module.exports = function (homebridge) {
     Accessory = homebridge.platformAccessory;
     Service = homebridge.hap.Service;
     Characteristic = homebridge.hap.Characteristic;
-    homebridge.registerAccessory('homebridge-sunsynk', 'Sunsynk', Sunsynk, true);
-};
 
-class Sunsynk {
-    constructor(log, config, api) {
-        this.log = new LogUtil(
-            config.options.debug,
-        );
+    homebridge.registerAccessory("homebridge-sunsynk", "Sunsynk", SunsynkAccessory);
+    homebridge.registerPlatform("homebridge-sunsynk", "Sunsynk", SunsynkPlatform);
+}
 
+function SunsynkPlatform(log, config) {
+    this.log = new LogUtil(config.options.debug, config.name, log);
 
-        this.config = config;
-        if (!config || !config.options) {
-            this.log.log('The config configuration is incorrect, disabling plugin.')
-            return;
+    this.username = config.options.username;
+    this.password = config.options.password;
+
+    this.appKey = "204013305";
+    this.appSecret = "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm";
+
+    this.plant_id=0;
+}
+
+SunsynkPlatform.prototype = {
+    accessories: async function (callback) {
+
+        let api;
+        api = new SunsynkAPI(this.username, this.password, this.appKey, this.appSecret, this.log);
+
+        this.SunsynkAPI = api;
+
+        if (await api.login()) {
+
+            api.body = {
+                page: 1,
+                limit: 20
+            };
+            var result = await api.get("/plants", api.body, null);
+            this.plant_id=result.infos[0].id;
+        }
+
+        var allacc = [];
+
+        for (var i = 0; i < 3; i++) {
+            var acc = new SunsynkAccessory(this.log, i);
+            allacc.push(acc);
         }
 
 
-        this.name = config.options.name;
-        this.appKey = config.options.appKey;
-        this.appSecret = config.options.appSecret;
-        this.username = config.options.username;
-        this.password = config.options.password;
+        callback(allacc);
+        platform = this;
 
-        this.service = new Service.Switch(this.name);
+        function processData(data) {
 
-        this.service
-            .getCharacteristic(Characteristic.On)
-            .on('set', this.handleOnSet.bind(this));
-
-        this.token = null;
-    }
-
-    async handleOnSet(value, callback) {
-        try {
-            const token = await this.getToken();
-            this.log('Token:', token);
-            // Handle your logic after getting the token
-        } catch (error) {
-            this.log('Error:', error.message);
         }
-        callback(null);
     }
+}
 
-    async getToken() {
-        const nonce = this.createUuid();
-        const requestBody = JSON.stringify({
-            username: this.username,
-            password: this.password,
-            grant_type: 'password',
-            client_id: 'openapi'
-        });
+function SunsynkAccessory(log, config) {
+    this.log = log;
 
-        const md5 = this.calcMd5(requestBody);
-        const headers = {
-            'content-type': 'application/json',
-            'accept': 'application/json',
-            'Content-MD5': md5,
-            'X-Ca-Nonce': nonce,
-            'X-Ca-Key': this.appKey,
-        };
+    this.name = "test" + config;
 
-        const textToSign = this.buildTextToSign(headers, requestBody, '/oauth/token');
-        const signature = this.sign(textToSign, this.appSecret);
-        headers['X-Ca-Signature'] = signature;
-        headers['X-Ca-Signature-Headers'] = Object.keys(headers).join(',');
+    var shasum = crypto.createHash('sha1');
+    //shasum.update(this.zone_number/* || this.area_number*/);
 
-        const options = {
-            method: 'POST',
-            uri: 'http://openapi.inteless.com/oauth/token',
-            headers: headers,
-            body: requestBody
-        };
+    this.sn = shasum.digest('base64');
+    log.log('Computed SN: ' + this.sn);
+}
 
-        return await request(options).then(response => {
-            const data = JSON.parse(response);
-            return data.access_token; // Adjust according to the actual response structure
-        });
-    }
+SunsynkAccessory.prototype = {
+    getServices: function () {
+        const me = this;
 
-    calcMd5(data) {
-        return crypto.createHash('md5').update(data).digest('base64');
-    }
+        var service, changeAction;
 
-    createUuid() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
+        var informationService = new Service.AccessoryInformation();
 
-    buildTextToSign(headers, data, url) {
-        let textToSign = 'POST\n';
-        textToSign += headers['accept'] + '\n';
-        textToSign += headers['Content-MD5'] + '\n';
-        textToSign += headers['content-type'] + '\n';
-        textToSign += '\n';
-        textToSign += Object.keys(headers)
-            .filter(key => key.startsWith('x-ca-'))
-            .sort()
-            .map(key => `${key}:${headers[key]}`)
-            .join('\n') + '\n';
-        textToSign += url;
-        return textToSign;
-    }
+        informationService
+            .setCharacteristic(Characteristic.Name, this.name)
+            .setCharacteristic(Characteristic.Manufacturer, "Sunsynk")
+            .setCharacteristic(Characteristic.Model, "Sunsynk"/*+ (this.accessoryType === ""?"":"") */)
+            .setCharacteristic(Characteristic.SerialNumber, this.sn);
 
-    sign(text, secret) {
-        return crypto.createHmac('sha256', secret).update(text).digest('base64');
-    }
+        service = new Service.LightSensor();
+        changeAction = function (newvalue) {
+            service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+                .setValue(newvalue);
+        }
 
-    getServices() {
-        return [this.service];
+        this.changeHandler = function (value) {
+            var newValue = value;
+
+            changeAction(newValue);
+            platform.log.debug("New Value:" + newValue);
+        }.bind(this);
+
+        return [informationService, service];
     }
 }
