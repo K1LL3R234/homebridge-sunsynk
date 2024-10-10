@@ -29,6 +29,22 @@
                         "type": "string",
                         "required": true
                     },
+                    "pollInterval": {
+                        "title": "Poll interval (in minutes)",
+                        "type": "number",
+                        "required": true,
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 60
+                    },
+                    "lowbatt": {
+                        "title": "Low Battery in %",
+                        "type": "number",
+                        "required": true,
+                        "default": 20,
+                        "minimum": 1,
+                        "maximum": 100
+                    },
                     "debug": {
                         "title": "Enable Debug Logging",
                         "type": "boolean",
@@ -38,10 +54,5 @@
                 }
             }
         }
-    },
-    "form": [
-        "name",
-        "username",
-        "password"
-    ]
+    }
 }

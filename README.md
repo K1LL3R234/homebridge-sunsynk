@@ -27,36 +27,16 @@ Texecom zones must be configured individually in the Homebridge config.json file
 Example:
 
 ```json
-"platforms": [
-    {
-        "platform": "Texecom",
-        "serial_device": "/dev/ttyUSB0",
-        "baud_rate": 19200,
-        "udl":1234,
-        "zones": [
-            {
-                "name": "Living Room",
-                "zone_number": "7",
-                "zone_type": "motion",
-                "dwell": 1000
-            },
-            {
-                "name": "Front Door",
-                "zone_number": "15",
-                "zone_type": "contact",
-                "dwell": 1000
-            }
-        ],
-        "areas": [
-            {
-                "name": "Texecom Alarm",
-                "area_number": "1",
-                "area_type": "securitysystem",
-                "dwell": 0
-            }
-        ]
+{
+    "name": "Sunsynk Inverter",
+    "platform": "Sunsynk",
+    "options": {
+        "username": "",
+        "password": "",
+        "debug": false,
+        "refresh": 10
     }
-]
+}
 ```
 
 
