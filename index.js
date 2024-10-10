@@ -7,7 +7,6 @@ const CryptoJS = require('crypto-js');
 const SunsynkAPI = require("./lib/sunsynkAPI");
 
 const LogUtil = require('./util/logutil');
-const sunsynkAPI = require("./lib/sunsynkAPI");
 
 var plant_id = 0;
 var pollInterval = 10;
