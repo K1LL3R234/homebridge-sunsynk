@@ -192,6 +192,8 @@ SunsynkAccessory.prototype = {
                 changeAction = function (newvalue) {
                     service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
                         .setValue(newvalue);
+                    service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+                        .updateValue(newvalue);
                 }
                 break;
 
@@ -200,16 +202,22 @@ SunsynkAccessory.prototype = {
                 changeAction = function (newvalue) {
                     service.getCharacteristic(Characteristic.BatteryLevel)
                         .setValue(newvalue);
+                    service.getCharacteristic(Characteristic.BatteryLevel)
+                        .updateValue(newvalue);
                 }
 
                 changeLevel = function (newlevel) {
                     service.getCharacteristic(Characteristic.StatusLowBattery)
                         .setValue(newlevel);
+                    service.getCharacteristic(Characteristic.StatusLowBattery)
+                        .updateValue(newlevel);
                 }
 
                 changeState = function (newvalue) {
                     service.getCharacteristic(Characteristic.ChargingState)
                         .setValue(newvalue);
+                    service.getCharacteristic(Characteristic.ChargingState)
+                        .updateValue(newvalue);
                 }
                 break;
         }

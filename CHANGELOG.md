@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.1 (2024-10-11)
+
+- **BUG** - Fixed bug for token being removed and can not continue requests.
+
 ### 1.0.0 (2024-10-11)
 
 - **FEATURE** - Released.

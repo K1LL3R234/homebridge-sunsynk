@@ -1,6 +1,6 @@
-[![npm](https://badgen.net/npm/v/homebridge-sunsynk/latest)](https://www.npmjs.com/package/homebridge-sunsynk)
-[![npm](https://badgen.net/npm/v/homebridge-sunsynk)](https://www.npmjs.com/package/homebridge-sunsynk)
-[![npm](https://badgen.net/npm/dt/homebridge-sunsynk)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![npm version](https://badgen.net/npm/v/homebridge-sunsynk/latest)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![npm beta version](https://badgen.net/npm/v/homebridge-sunsynk/beta)](https://www.npmjs.com/package/homebridge-sunsynk)
+[![npm downloads](https://badgen.net/npm/dt/homebridge-sunsynk)](https://www.npmjs.com/package/homebridge-sunsynk)
 [![GitHub last commit](https://badgen.net/github/last-commit/K1LL3R234/homebridge-sunsynk)](https://github.com/K1LL3R234/homebridge-sunsynk)
 # homebridge-sunsynk
  Sunsynk Inveter plugin
