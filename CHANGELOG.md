@@ -2,6 +2,15 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.3 (2024-10-11)
+
+- **FEATURE** - Moved the SOC and charging under the Battery Power W.
+              - And cleaned up some code.
+
+### 1.0.2 (2024-10-11)
+
+- **BUG** - Fixed Not displaying something right.
+
 ### 1.0.1 (2024-10-11)
 
 - **BUG** - Fixed bug for token being removed and can not continue requests.
