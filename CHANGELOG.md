@@ -2,6 +2,11 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.4-beta.1 (2024-10-11)
+
+- **FEATURE** - Moved the SOC and charging under humidity sensor to be used for automations.
+                Still figuring out that is why it moved to beta.
+              
 ### 1.0.3 (2024-10-11)
 
 - **FEATURE** - Moved the SOC and charging under the Battery Power W.

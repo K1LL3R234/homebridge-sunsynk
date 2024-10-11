@@ -2,7 +2,7 @@
     "displayName": "Homebridge Sunsynk",
     "name": "homebridge-sunsynk",
     "description": "A plugin for homebridge (https://github.com/nfarina/homebridge) to integrate Sunsynk inverter into HomeKit",
-    "version": "1.0.3",
+    "version": "1.0.4-beta.1",
     "author": {
         "name": "Chris Posthumus",
         "email": "chris.posthumus@gmail.com"
@@ -29,7 +29,15 @@
     "preferGlobal": true,
     "keywords": [
         "homebridge-plugin",
+        "homebridge",
         "inverter",
+        "solar",
+        "power-consumption",
+        "SOC",
+        "battery",
+        "solar-panels",
+        "solar-inverter",
+        "sensor",
         "Sunsynk"
     ],
     "engines": {

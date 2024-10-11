@@ -75,6 +75,9 @@ SunsynkPlatform.prototype = {
         var batt_pw = { "name": "Battery Power W", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, batt_pw);
         allacc.push(acc);
+        var batt_soc = { "name": "Battery SOC", "type": "batt" };
+        var acc = new SunsynkAccessory(this.log, batt_soc);
+        allacc.push(acc);
 
         var load_pw = { "name": "Load Power W", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, load_pw);
@@ -98,50 +101,55 @@ SunsynkPlatform.prototype = {
             var batt_result = await api.get(`/plant/energy/${plant_id}/flow`, null, null);
 
             for (var i = 0; i < allacc.length; i++) {
+                if (allacc[i].type == 'pv') {
+                    switch (allacc[i].name) {
+                        case 'Current PV Power W':
+                            allacc[i].changeHandler(real_result.pac);
+                            break;
 
-                switch (allacc[i].name) {
-                    case 'Current Power W':
-                        allacc[i].changeHandler(real_result.pac);
-                        break;
+                        case 'Today PV Electricity kWh':
+                            allacc[i].changeHandler(real_result.etoday);
+                            break;
 
-                    case 'Today Electricity kWh':
-                        allacc[i].changeHandler(real_result.etoday);
-                        break;
+                        case 'Month PV Electricity kWh':
+                            allacc[i].changeHandler(real_result.emonth);
+                            break;
 
-                    case 'Month Electricity kWh':
-                        allacc[i].changeHandler(real_result.emonth);
-                        break;
+                        case 'Year PV Electricity kWh':
+                            allacc[i].changeHandler(real_result.eyear);
+                            break;
 
-                    case 'Year Electricity kWh':
-                        allacc[i].changeHandler(real_result.eyear);
-                        break;
+                        case 'Total PV Electricity kWh':
+                            allacc[i].changeHandler(real_result.etotal);
+                            break;
 
-                    case 'Total Electricity kWh':
-                        allacc[i].changeHandler(real_result.etotal);
-                        break;
+                        case 'Battery Power W':
+                            allacc[i].changeHandler(batt_result.battPower);
+                            break;
 
-                    case 'Battery Power W':
-                        allacc[i].changeHandler(batt_result.battPower);
+                        case 'Load Power W':
+                            allacc[i].changeHandler(batt_result.loadOrEpsPower);
+                            break;
+                    }
+                }
+                else if (allacc[i].type == 'batt') {
+                    allacc[i].changeHandler1(batt_result.soc);
 
-                        allacc[i].changeHandler1(batt_result.soc);
+                    var state = Characteristic.ChargingState.NOT_CHARGING;
 
-                        var state = Characteristic.ChargingState.NOT_CHARGING;
+                    if (batt_result.toBat) {
+                        state = Characteristic.ChargingState.CHARGING;
+                    }
+                    else if (batt_result.batTo) {
+                        state = Characteristic.ChargingState.NOT_CHARGING;
+                    }
 
-                        if (batt_result.toBat) {
-                            state = Characteristic.ChargingState.CHARGING;
-                        }
-                        else if (batt_result.batTo) {
-                            state = Characteristic.ChargingState.NOT_CHARGING;
-                        }
+                    allacc[i].changeChargeState(state);
 
-                        allacc[i].changeChargeState(state);
+                    allacc[i].changeLevel(batt_result.soc < lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL)
 
-                        allacc[i].changeLevel(batt_result.soc < lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL)
-                        break;
+                    allacc[i].changeHandler(batt_result.soc);
 
-                    case 'Load Power W':
-                        allacc[i].changeHandler(batt_result.loadOrEpsPower);
-                        break;
                 }
             }
         }
@@ -181,83 +189,81 @@ SunsynkAccessory.prototype = {
             .setCharacteristic(Characteristic.Model, "Sunsynk"/*+ (this.accessoryType === ""?"":"") */)
             .setCharacteristic(Characteristic.SerialNumber, this.sn);
 
-        if (this.name == 'Battery Power W') {
-            service = new Service.LightSensor();
-            newService = new Service.Battery();
-            changeAction = function (newvalue) {
-                service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                    .setValue(newvalue);
-                service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                    .updateValue(newvalue);
-            }
+        switch (this.type) {
+            case "pv":
+                service = new Service.LightSensor();
+                changeAction = function (newvalue) {
+                    service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+                        .setValue(newvalue);
+                    service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+                        .updateValue(newvalue);
+                }
 
-            changeAction1 = function (newvalue) {
-                newService.getCharacteristic(Characteristic.BatteryLevel)
-                    .setValue(newvalue);
-                newService.getCharacteristic(Characteristic.BatteryLevel)
-                    .updateValue(newvalue);
-            }
+                this.changeHandler = function (value) {
+                    if (value < 0.0001) {
+                        value = 0.0001
+                    }
 
-            changeLevel = function (newlevel) {
-                newService.getCharacteristic(Characteristic.StatusLowBattery)
-                    .setValue(newlevel);
-                newService.getCharacteristic(Characteristic.StatusLowBattery)
-                    .updateValue(newlevel);
-            }
+                    changeAction(value);
+                    platform.log.debug("New Value:" + value);
+                }.bind(this);
 
-            changeState = function (newvalue) {
-                newService.getCharacteristic(Characteristic.ChargingState)
-                    .setValue(newvalue);
-                newService.getCharacteristic(Characteristic.ChargingState)
-                    .updateValue(newvalue);
-            }
+                return [informationService, service];
 
-            this.changeHandler = function (value) {
-                var newValue = value;
+            case "batt":
+                service = new Service.HumiditySensor();
 
-                changeAction(newValue);
-                platform.log.debug("New Value:" + newValue);
-            }.bind(this);
+                changeAction = function (value) {
+                    service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+                        .setValue(value);
+                    service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+                        .updateValue(value);
+                }
 
-            this.changeHandler1 = function (value) {
-                var newValue = value;
 
-                changeAction1(newValue);
-                platform.log.debug("New Value:" + newValue);
-            }.bind(this);
+                newService = new Service.Battery();
+                changeAction1 = function (newvalue) {
+                    newService.getCharacteristic(Characteristic.BatteryLevel)
+                        .setValue(newvalue);
+                    newService.getCharacteristic(Characteristic.BatteryLevel)
+                        .updateValue(newvalue);
+                }
 
-            this.changeChargeState = function (value) {
-                var state = value;
+                changeLevel = function (newlevel) {
+                    newService.getCharacteristic(Characteristic.StatusLowBattery)
+                        .setValue(newlevel);
+                    newService.getCharacteristic(Characteristic.StatusLowBattery)
+                        .updateValue(newlevel);
+                }
 
-                changeState(state);
-                platform.log.debug("New State:" + state);
-            }.bind(this);
+                changeState = function (newvalue) {
+                    newService.getCharacteristic(Characteristic.ChargingState)
+                        .setValue(newvalue);
+                    newService.getCharacteristic(Characteristic.ChargingState)
+                        .updateValue(newvalue);
+                }
 
-            this.changeLevel = function (value) {
-                var level = value;
-                changeLevel(level)
-                platform.log.debug("New Level:" + level);
-            }.bind(this);
+                this.changeHandler = function (value) {
+                    changeAction(value);
+                    platform.log.debug("New Value:" + value);
+                }.bind(this);
 
-            return [informationService, service, newService];
-        }
-        else {
-            service = new Service.LightSensor();
-            changeAction = function (newvalue) {
-                service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                    .setValue(newvalue);
-                service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                    .updateValue(newvalue);
-            }
+                this.changeHandler1 = function (value) {
+                    changeAction1(value);
+                    platform.log.debug("New Value:" + value);
+                }.bind(this);
 
-            this.changeHandler = function (value) {
-                var newValue = value;
+                this.changeChargeState = function (value) {
+                    changeState(value);
+                    platform.log.debug("New State:" + value);
+                }.bind(this);
 
-                changeAction(newValue);
-                platform.log.debug("New Value:" + newValue);
-            }.bind(this);
+                this.changeLevel = function (value) {
+                    changeLevel(value)
+                    platform.log.debug("New Level:" + value);
+                }.bind(this);
 
-            return [informationService, service];
+                return [informationService, service, newService];
         }
     }
 }
