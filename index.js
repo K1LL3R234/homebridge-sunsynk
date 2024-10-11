@@ -56,19 +56,19 @@ SunsynkPlatform.prototype = {
 
         var allacc = [];
 
-        var cur_pw = { "name": "Current Power W", "type": "pv" };
+        var cur_pw = { "name": "Current PV Power W", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, cur_pw);
         allacc.push(acc);
-        var today_pw = { "name": "Today Electricity kWh", "type": "pv" };
+        var today_pw = { "name": "Today PV Electricity kWh", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, today_pw);
         allacc.push(acc);
-        var month_pw = { "name": "Month Electricity kWh", "type": "pv" };
+        var month_pw = { "name": "Month PV Electricity kWh", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, month_pw);
         allacc.push(acc);
-        var year_pw = { "name": "Year Electricity kWh", "type": "pv" };
+        var year_pw = { "name": "Year PV Electricity kWh", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, year_pw);
         allacc.push(acc);
-        var total_pw = { "name": "Total Electricity kWh", "type": "pv" };
+        var total_pw = { "name": "Total PV Electricity kWh", "type": "pv" };
         var acc = new SunsynkAccessory(this.log, total_pw);
         allacc.push(acc);
 

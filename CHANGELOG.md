@@ -2,6 +2,11 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.4-beta.2 (2024-10-11)
+                
+- **BUG** - Fixed problem with 0 pv bringing up an error.
+          - Fixed problem with states not updating.
+
 ### 1.0.4-beta.1 (2024-10-11)
 
 - **FEATURE** - Moved the SOC and charging under humidity sensor to be used for automations.
