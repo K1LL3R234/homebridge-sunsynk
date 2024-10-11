@@ -5,7 +5,7 @@
 # homebridge-sunsynk
  Sunsynk Inveter plugin
 
-A plugin for [Homebridge](https://github.com/nfarina/homebridge) that connects to your Sunsynk Inverter with Homekit. The plugin provides three key sensors:  Current Power Production (in Watts), Today's Yield (in kWh), This Month's Yield (in kWh), This Year's Yield (in kWh), and the Total Yield (in kWh). With these sensors, you can effortlessly create automations in your Apple Home based on your solar panel yield, power usage and battery status for a Sunsynk inverter and the e-linter API. homebridge-sunsynk was originated by [Chris Posthumus](https://github.com/k1ll3r234).
+A plugin for [Homebridge](https://github.com/nfarina/homebridge) that connects to your Sunsynk Inverter with Homekit. The plugin provides eight key sensors:  Current Power Production (in Watts), Today's Yield (in kWh), This Month's Yield (in kWh), This Year's Yield (in kWh), the Total Yield (in kWh), Battery Power (in W), Battery SOC (in %) and Load Power (in W). With these sensors, you can effortlessly create automations in your Apple Home based on your solar panel yield, power usage and battery status for a Sunsynk inverter and the e-linter API. homebridge-sunsynk was originated by [Chris Posthumus](https://github.com/k1ll3r234).
 
 
 You can also set automations to happen when battery reach a certain level or when you generate more than enough power and can turn your pool pump on etc.
@@ -27,7 +27,7 @@ Example:
         "password": "",
         "pollInterval": 10,
         "lowbatt": 20,
-        "debug": true
+        "debug": false
     }
 }
 ```
@@ -35,3 +35,7 @@ Example:
 ## Future features
 
 I will add more things as it is requested or when I find need for it.
+
+Please add feature recomendations [here](https://github.com/K1LL3R234/homebridge-sunsynk/issues/new?assignees=&labels=&projects=&template=feature_request.md&title=).
+
+If you want to discuss things go [here](https://github.com/K1LL3R234/homebridge-sunsynk/discussions).
