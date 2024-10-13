@@ -169,7 +169,7 @@ function SunsynkAccessory(log, config) {
     this.type = config["type"];
 
     var shasum = crypto.createHash('sha1');
-    //shasum.update(this.zone_number/* || this.area_number*/);
+    shasum.update(this.name);
 
     this.sn = shasum.digest('base64');
     log.log('Computed SN: ' + this.sn);

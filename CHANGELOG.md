@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.4 (2024-10-13)
+                
+- **BUG** - Fixed SN for each device to be diffrent.
+
 ### 1.0.4-beta.2 (2024-10-11)
                 
 - **BUG** - Fixed problem with 0 pv bringing up an error.
