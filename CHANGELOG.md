@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.5 (2024-11-06)
+                
+- **BUG** - Fixed node for verification
+
 ### 1.0.4 (2024-10-13)
                 
 - **BUG** - Fixed SN for each device to be diffrent.
