@@ -2,7 +2,7 @@
     "displayName": "Homebridge Sunsynk",
     "name": "homebridge-sunsynk",
     "description": "A plugin for homebridge to integrate Sunsynk inverter into HomeKit",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "author": {
         "name": "Chris Posthumus",
         "email": "chris.posthumus@gmail.com"
@@ -53,6 +53,6 @@
         "axios": "^0.28.0",
         "crypto-js": "^4.2.0",
         "debug": "^4.1.1",
-        "string": "^3.4.0"
+        "string": "^3.3.3"
     }
 }

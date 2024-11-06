@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.6 (2024-11-06)
+                
+- **BUG** - Fixed string version in package
+
 ### 1.0.5 (2024-11-06)
                 
 - **BUG** - Fixed node for verification
