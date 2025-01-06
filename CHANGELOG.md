@@ -1,6 +1,6 @@
 # Change log
 
-This change log documents all release versions of homebridge-texecom
+This change log documents all release versions of homebridge-sunsynk
 
 ### 1.1.0-beta.1 (2025-01-06)
 
