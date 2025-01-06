@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.0.7 (2025-01-06)
+                
+- **BUG** - Fixed issue to check if username and password is saved and valid.
+
 ### 1.0.6 (2024-11-06)
                 
 - **BUG** - Fixed string version in package

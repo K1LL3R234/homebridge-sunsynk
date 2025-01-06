@@ -27,6 +27,12 @@ function SunsynkPlatform(log, config) {
     this.username = config.options.username;
     this.password = config.options.password;
 
+    // Validate username and password
+    if (!this.username || !this.password) {
+        this.log.error("Username or password is missing in the configuration. Please check your config file.");
+        return;
+    }
+
     pollInterval = config.options.pollInterval * 60000;
     lowbatt = config.options.lowbatt;
 
