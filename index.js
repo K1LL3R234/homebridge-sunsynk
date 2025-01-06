@@ -12,6 +12,8 @@ var plant_id = 0;
 var pollInterval = 10;
 var lowbatt = 20;
 
+var handler_change = false;
+
 module.exports = function (homebridge) {
     Accessory = homebridge.platformAccessory;
     Service = homebridge.hap.Service;
@@ -58,6 +60,18 @@ SunsynkPlatform.prototype = {
             };
             var result = await api.get("/plants", api.body, null);
             plant_id = result.infos[0].id;
+
+
+            var par = {
+                page: 1,               // current page number (required)
+                limit: 1,             // page size (required)
+                status: 1,             // 0-offline,1-normal,2-warning,3-fault,4-upgrading (optional)
+                plantId: plant_id,         // Plant ID (optional)
+                type: -1,               // 1: grid, 2: ess, -1: all (required)
+            };
+
+            var in_result = await api.get("/inverters", par, null)
+            plant_sn = in_result.infos[0].sn;
         }
 
         var allacc = [];
@@ -89,6 +103,11 @@ SunsynkPlatform.prototype = {
         var acc = new SunsynkAccessory(this.log, load_pw);
         allacc.push(acc);
 
+
+        var load_grid_pw = { "name": "Grid Power", "type": "pow" };
+        var acc = new SunsynkAccessory(this.log, load_grid_pw);
+        allacc.push(acc);
+
         /*for (var i = 0; i < 9; i++) {
             var acc = new SunsynkAccessory(this.log, i);
             allacc.push(acc);
@@ -105,6 +124,8 @@ SunsynkPlatform.prototype = {
             var real_result = await api.get(`/plant/${plant_id}/realtime`, null, null);
 
             var batt_result = await api.get(`/plant/energy/${plant_id}/flow`, null, null);
+
+            var realAC_result = await api.get(`/inverter/grid/${plant_sn}/realtime`, null, null);
 
             for (var i = 0; i < allacc.length; i++) {
                 if (allacc[i].type == 'pv') {
@@ -156,6 +177,14 @@ SunsynkPlatform.prototype = {
 
                     allacc[i].changeHandler(batt_result.soc);
 
+                }
+                else if (allacc[i].type == 'pow') {
+                    switch (allacc[i].name) {
+                        case 'Grid Power':
+                            handler_change = true;
+                            allacc[i].changeHandler(realAC_result.acRealyStatus);
+                            break;
+                    }
                 }
             }
         }
@@ -215,6 +244,45 @@ SunsynkAccessory.prototype = {
                 }.bind(this);
 
                 return [informationService, service];
+
+            case "pow":
+                service = new Service.Outlet();
+
+                changeAction = function (value) {
+                    service.getCharacteristic(Characteristic.On)
+                        .setValue(value);
+                    service.getCharacteristic(Characteristic.On)
+                        .updateValue(value);
+                }
+
+                this.changeHandler = function (value) {
+                    changeAction(value);
+                    platform.log.debug("New Status:" + value);
+                }.bind(this);
+
+                service.getCharacteristic(Characteristic.On)
+                    .on('set', function (value, callback) {
+                        // Get the current state of the characteristic
+                        const currentState = service.getCharacteristic(Characteristic.On).value;
+
+                        if (handler_change) {
+                            handler_change = false;
+                            // Allow state change if triggered by handler
+                            platform.log.debug("State changed via handler: " + value);
+                            callback(null);
+                        }
+                        else {
+                            handler_change = false;
+                            // Prevent state change by resetting to the current state
+                            platform.log.debug(`Button pressed, keeping state unchanged: ${currentState}`);
+                            callback(null); // Acknowledge the action without error
+                            process.nextTick(() => {
+                                service.getCharacteristic(Characteristic.On).updateValue(currentState);
+                            });
+                        }
+                    });
+
+                return [informationService, service, newService];
 
             case "batt":
                 service = new Service.HumiditySensor();

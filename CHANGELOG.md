@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-texecom
 
+### 1.1.0-beta.1 (2025-01-06)
+
+- **FEATURE** - Added Grid Monitoring as an outlet.
+
 ### 1.0.7 (2025-01-06)
                 
 - **BUG** - Fixed issue to check if username and password is saved and valid.
