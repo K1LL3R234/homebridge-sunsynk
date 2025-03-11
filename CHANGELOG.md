@@ -2,6 +2,11 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
+### 1.1.1 (2025-03-11)
+
+- **FEATURE** - Added Grid Monitoring as an outlet.
+- **FIX** - Changed the version of a dependency for security
+
 ### 1.1.0-beta.1 (2025-01-06)
 
 - **FEATURE** - Added Grid Monitoring as an outlet.
