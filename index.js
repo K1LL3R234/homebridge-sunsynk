@@ -47,7 +47,10 @@ function SunsynkPlatform(log, config) {
         return;
     }
 
-    pollInterval = config.options.pollInterval * 60000;
+    // A missing or invalid interval leaves setInterval with NaN, which fires
+    // continuously and hammers the API. Fall back to the schema default.
+    var minutes = Number(config.options.pollInterval);
+    pollInterval = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60000;
     lowbatt = config.options.lowbatt;
 
     // Only an explicit false disables a sensor, so an existing config without
@@ -109,53 +112,6 @@ SunsynkPlatform.prototype = {
 
         this.SunsynkAPI = api;
 
-        if (await api.login()) {
-
-            api.body = {
-                page: 1,
-                limit: 20
-            };
-            var result = await api.get("/plants", api.body, null);
-            if (!result || !Array.isArray(result.infos) || result.infos.length === 0) {
-                this.log.warn("[Sunsynk] No plants were returned by the API.");
-                callback([]);
-                return;
-            }
-
-            plant_id = result.infos[0].id;
-
-            // The inverter serial number is only needed for the grid endpoint.
-            // Search every API state so a fault or offline inverter does not
-            // make the child bridge crash during startup.
-            if (needGrid) {
-                var inverterStatuses = [1, 2, 3, 4, 0];
-                var inverter;
-
-                for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
-                    var par = {
-                        page: 1,               // current page number (required)
-                        limit: 1,              // page size (required)
-                        status: inverterStatuses[statusIndex],
-                        plantId: plant_id,     // Plant ID (optional)
-                        type: -1,              // 1: grid, 2: ess, -1: all (required)
-                    };
-
-                    var in_result = await api.get("/inverters", par, null);
-                    if (in_result && Array.isArray(in_result.infos) && in_result.infos.length > 0) {
-                        inverter = in_result.infos[0];
-                        break;
-                    }
-                }
-
-                if (!inverter || !inverter.sn) {
-                    this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
-                    needGrid = false;
-                } else {
-                    plant_sn = inverter.sn;
-                }
-            }
-        }
-
         var allacc = [];
 
         for (var i = 0; i < active.length; i++) {
@@ -165,11 +121,80 @@ SunsynkPlatform.prototype = {
         callback(allacc);
         platform = this;
 
+        // The accessories are published before the API is ever contacted, so an
+        // outage at startup leaves them in place in HomeKit with their rooms and
+        // automations intact rather than removing them. Discovery is retried on
+        // every poll until it succeeds, so the plugin recovers on its own once
+        // the API comes back instead of needing a restart.
+        var discovered = false;
 
+        async function discover() {
+            try {
+                await api.login();
 
+                api.body = {
+                    page: 1,
+                    limit: 20
+                };
+                var result = await api.get("/plants", api.body, null);
+                if (!result || !Array.isArray(result.infos) || result.infos.length === 0) {
+                    platform.log.warn("[Sunsynk] No plants were returned by the API, retrying at the next poll.");
+                    return false;
+                }
+
+                plant_id = result.infos[0].id;
+
+                // The inverter serial number is only needed for the grid endpoint.
+                // Search every API state so a fault or offline inverter does not
+                // make the child bridge crash during startup.
+                if (needGrid) {
+                    var inverterStatuses = [1, 2, 3, 4, 0];
+                    var inverter;
+
+                    for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
+                        var par = {
+                            page: 1,               // current page number (required)
+                            limit: 1,              // page size (required)
+                            status: inverterStatuses[statusIndex],
+                            plantId: plant_id,     // Plant ID (optional)
+                            type: -1,              // 1: grid, 2: ess, -1: all (required)
+                        };
+
+                        var in_result = await api.get("/inverters", par, null);
+                        if (in_result && Array.isArray(in_result.infos) && in_result.infos.length > 0) {
+                            inverter = in_result.infos[0];
+                            break;
+                        }
+                    }
+
+                    // Every state answered and none of them held an inverter, so
+                    // this is the API's real answer rather than an outage. Stop
+                    // asking for grid data instead of retrying it forever.
+                    if (!inverter || !inverter.sn) {
+                        platform.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                        needGrid = false;
+                    } else {
+                        plant_sn = inverter.sn;
+                    }
+                }
+
+                return true;
+            } catch (err) {
+                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", err.message);
+                return false;
+            }
+        }
 
         async function processData(data) {
             try {
+                if (!discovered) {
+                    discovered = await discover();
+
+                    if (!discovered) {
+                        return;
+                    }
+                }
+
                 var real_result = needRealtime ? await api.get(`/plant/${plant_id}/realtime`, null, null) : null;
 
                 var batt_result = needFlow ? await api.get(`/plant/energy/${plant_id}/flow`, null, null) : null;
