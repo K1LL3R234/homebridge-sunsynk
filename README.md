@@ -74,6 +74,12 @@ When every sensor that uses a given part of the Sunsynk API is switched off, tha
 
 **Turning a sensor off removes it from HomeKit on the next restart.** Anything attached to it in the Home app goes with it: automations, scenes, favourites, its room and any custom name you gave it. Turning it back on later adds it again as a new accessory, so you would need to set those up again.
 
+## Thanks
+
+A big thank you to [atdr](https://github.com/atdr) for the contributions to this plugin: the option to choose which sensors get published, and the fixes for the plugin stopping after a failed poll and crashing when the inverter is not in its normal state. The reports and the pull requests were both thorough and tested on real hardware, and the plugin is a lot more robust for it.
+
+Thanks as well to everyone who opens issues and feature requests. Keep them coming.
+
 ## Future features
 
 I will add more things as it is requested or when I find need for it.
