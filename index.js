@@ -11,6 +11,7 @@ const SunsynkAPI = require("./lib/sunsynkAPI");
 const LogUtil = require('./util/logutil');
 
 var plant_id = 0;
+var plant_sn;
 var pollInterval = 10;
 var lowbatt = 20;
 
@@ -115,19 +116,44 @@ SunsynkPlatform.prototype = {
                 limit: 20
             };
             var result = await api.get("/plants", api.body, null);
+            if (!result || !Array.isArray(result.infos) || result.infos.length === 0) {
+                this.log.warn("[Sunsynk] No plants were returned by the API.");
+                callback([]);
+                return;
+            }
+
             plant_id = result.infos[0].id;
 
+            // The inverter serial number is only needed for the grid endpoint.
+            // Search every API state so a fault or offline inverter does not
+            // make the child bridge crash during startup.
+            if (needGrid) {
+                var inverterStatuses = [1, 2, 3, 4, 0];
+                var inverter;
 
-            var par = {
-                page: 1,               // current page number (required)
-                limit: 1,             // page size (required)
-                status: 1,             // 0-offline,1-normal,2-warning,3-fault,4-upgrading (optional)
-                plantId: plant_id,         // Plant ID (optional)
-                type: -1,               // 1: grid, 2: ess, -1: all (required)
-            };
+                for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
+                    var par = {
+                        page: 1,               // current page number (required)
+                        limit: 1,              // page size (required)
+                        status: inverterStatuses[statusIndex],
+                        plantId: plant_id,     // Plant ID (optional)
+                        type: -1,              // 1: grid, 2: ess, -1: all (required)
+                    };
 
-            var in_result = await api.get("/inverters", par, null)
-            plant_sn = in_result.infos[0].sn;
+                    var in_result = await api.get("/inverters", par, null);
+                    if (in_result && Array.isArray(in_result.infos) && in_result.infos.length > 0) {
+                        inverter = in_result.infos[0];
+                        break;
+                    }
+                }
+
+                if (!inverter || !inverter.sn) {
+                    this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                    needGrid = false;
+                } else {
+                    plant_sn = inverter.sn;
+                }
+            }
         }
 
         var allacc = [];
@@ -204,8 +230,10 @@ SunsynkPlatform.prototype = {
                     else if (allacc[i].type == 'pow') {
                         switch (allacc[i].name) {
                             case 'Grid Power':
-                                handler_change = true;
-                                allacc[i].changeHandler(realAC_result.acRealyStatus);
+                                if (realAC_result) {
+                                    handler_change = true;
+                                    allacc[i].changeHandler(realAC_result.acRealyStatus);
+                                }
                                 break;
                         }
                     }
