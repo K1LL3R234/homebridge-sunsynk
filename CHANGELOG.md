@@ -2,7 +2,7 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
-### Unreleased
+### 1.2.0-beta.2 (2026-08-31)
 
 - **FIX** - An inverter in an offline, warning, fault, or upgrading state no longer crashes the child bridge during startup. The plugin now validates plant and inverter API responses, searches across inverter states when Grid Power is enabled, and skips the inverter lookup when Grid Power is disabled. ([#21](https://github.com/K1LL3R234/homebridge-sunsynk/issues/21))
 - **FIX** - A Sunsynk API outage while Homebridge starts no longer leaves the plugin sitting idle until the next restart. The sensors are now published before the API is contacted, so they keep their rooms, names and automations in HomeKit, and the plant and inverter lookup is wrapped in error handling and retried on every poll until it succeeds.
