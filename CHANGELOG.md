@@ -7,6 +7,7 @@ This change log documents all release versions of homebridge-sunsynk
 - **FIX** - Errors are now always logged. They were previously only shown when "Enable Debug Logging" was switched on, so a configuration or API error could fail silently.
 - **FIX** - Warnings, errors and debug output now go through the Homebridge logger instead of straight to the console, so they carry Homebridge's timestamp and plugin name and appear in the Homebridge UI log like every other line.
 - **FIX** - "Setup failed" and "Polling failed" warnings now say which request failed and how, for example `Request failed with status code 502 (ERR_BAD_RESPONSE, GET /plant/123/realtime)`, so a Sunsynk outage can be told apart from a login or endpoint problem. Request bodies are never logged, because the login request carries the password.
+- **FIX** - A missing or invalid "Low Battery in %" value no longer stops the low battery warning from ever triggering. It now falls back to the 20% default.
 
 ### 1.2.0-beta.2 (2026-08-31)
 

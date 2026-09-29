@@ -75,7 +75,11 @@ function SunsynkPlatform(log, config) {
     // continuously and hammers the API. Fall back to the schema default.
     var minutes = Number(config.options.pollInterval);
     pollInterval = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60000;
-    lowbatt = config.options.lowbatt;
+    // A missing or invalid threshold left lowbatt undefined, and
+    // "soc < undefined" is always false, so the battery never reported low.
+    var lowRaw = config.options.lowbatt;
+    var lowPercent = lowRaw === undefined || lowRaw === null || lowRaw === "" ? NaN : Number(lowRaw);
+    lowbatt = Number.isFinite(lowPercent) && lowPercent >= 0 && lowPercent <= 100 ? lowPercent : 20;
 
     // Only an explicit false disables a sensor, so an existing config without
     // this key keeps publishing every sensor.
