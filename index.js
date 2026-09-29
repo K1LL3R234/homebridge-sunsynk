@@ -17,6 +17,30 @@ var lowbatt = 20;
 
 var handler_change = false;
 
+// Describe a failed API call for the log: the error message plus, when axios
+// provides them, the error code and the request method and path, so an outage
+// can be told apart from an authentication or endpoint problem. Request bodies
+// are deliberately left out, because the login body carries the password.
+function describeError(err) {
+    if (!err) {
+        return "unknown error";
+    }
+
+    var config = err.config || {};
+    var request = [config.method ? String(config.method).toUpperCase() : "", config.url || ""].join(" ").trim();
+    var details = [];
+
+    if (err.code) {
+        details.push(err.code);
+    }
+    if (request) {
+        details.push(request);
+    }
+
+    var message = err.message || String(err);
+    return details.length ? message + " (" + details.join(", ") + ")" : message;
+}
+
 module.exports = function (homebridge) {
     Accessory = homebridge.platformAccessory;
     Service = homebridge.hap.Service;
@@ -180,7 +204,7 @@ SunsynkPlatform.prototype = {
 
                 return true;
             } catch (err) {
-                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", err.message);
+                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", describeError(err));
                 return false;
             }
         }
@@ -264,7 +288,7 @@ SunsynkPlatform.prototype = {
                     }
                 }
             } catch (err) {
-                platform.log.warn('[Sunsynk] Polling failed:', err.message);
+                platform.log.warn('[Sunsynk] Polling failed:', describeError(err));
             }
         }
 
