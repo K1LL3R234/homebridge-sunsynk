@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
+### Unreleased
+
+- **SECURITY** - The login request to Sunsynk now verifies the server's TLS certificate. Verification had been switched off for that one request, which is the request that sends the account username and password, so anyone able to intercept the connection could have presented a forged certificate and read them. Sunsynk's certificate is valid and verifies normally, so nothing changes for working setups.
+
 ### 1.2.0-beta.2 (2026-08-31)
 
 - **FIX** - An inverter in an offline, warning, fault, or upgrading state no longer crashes the child bridge during startup. The plugin now validates plant and inverter API responses, searches across inverter states when Grid Power is enabled, and skips the inverter lookup when Grid Power is disabled. ([#21](https://github.com/K1LL3R234/homebridge-sunsynk/issues/21))
