@@ -2,8 +2,6 @@ var Service;
 var Characteristic;
 var Accessory;
 var crypto = require("crypto");
-const CryptoJS = require('crypto-js');
-const qs = require('querystring');
 
 
 const SunsynkAPI = require("./lib/sunsynkAPI");

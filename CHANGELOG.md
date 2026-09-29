@@ -5,6 +5,8 @@ This change log documents all release versions of homebridge-sunsynk
 ### Unreleased
 
 - **SECURITY** - The login request to Sunsynk now verifies the server's TLS certificate. Verification had been switched off for that one request, which is the request that sends the account username and password, so anyone able to intercept the connection could have presented a forged certificate and read them. Sunsynk's certificate is valid and verifies normally, so nothing changes for working setups.
+- **SECURITY** - Raised the minimum Axios version to `^1.20.0`, which resolves three high-severity advisories affecting versions up to 1.17, and removed the unused `string` and `debug` dependencies, both of which carry advisories of their own.
+- **CHORE** - Added an explicit `.npmignore` so published packages include only the intended files.
 
 ### 1.2.0-beta.2 (2026-08-31)
 
