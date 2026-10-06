@@ -1,40 +1,35 @@
+// Thin wrapper around the Homebridge logger. Homebridge already adds the
+// timestamp and the platform name, and it routes output through its own log
+// handling (the UI log viewer, log files, colours), so every level goes there
+// rather than to console.log.
+//
+// debug() follows the plugin's own "Enable Debug Logging" option rather than
+// Homebridge's -D flag, so it prints at info level with a [DEBUG] tag.
 class LogUtil {
-    constructor(isDebug = false,prefix='',log) {
-        this.log=log;
+    constructor(isDebug = false, prefix = '', log) {
+        this.hbLog = log;
         this.isDebug = isDebug;
+        // Kept for compatibility; Homebridge's logger already carries the prefix.
         this.prefix = prefix;
     }
 
-    getCurrentTimestamp() {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0'); // Month is 0-based
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        return `[${year}/${month}/${day}, ${hours}:${minutes}:${seconds}]`;
-    }
-
     log(...args) {
-        console.log(this.getCurrentTimestamp(), `[${this.prefix}]`, ...args);
+        this.hbLog.info(...args);
     }
 
     debug(...args) {
         if (this.isDebug) {
-            console.log(this.getCurrentTimestamp(), `[${this.prefix}[DEBUG]]`, ...args);
+            this.hbLog.info('[DEBUG]', ...args);
         }
     }
 
     warn(...args) {
-        console.log(this.getCurrentTimestamp(), `[${this.prefix}[WARN]]`, ...args);
+        this.hbLog.warn(...args);
     }
 
+    // Errors always print. They used to be hidden unless debug logging was on.
     error(...args) {
-        if (this.isDebug) {
-            console.log(this.getCurrentTimestamp(), `[${this.prefix}[ERROR]]`, ...args);
-        }
+        this.hbLog.error(...args);
     }
 }
 

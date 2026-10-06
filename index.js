@@ -15,6 +15,30 @@ var lowbatt = 20;
 
 var handler_change = false;
 
+// Describe a failed API call for the log: the error message plus, when axios
+// provides them, the error code and the request method and path, so an outage
+// can be told apart from an authentication or endpoint problem. Request bodies
+// are deliberately left out, because the login body carries the password.
+function describeError(err) {
+    if (!err) {
+        return "unknown error";
+    }
+
+    var config = err.config || {};
+    var request = [config.method ? String(config.method).toUpperCase() : "", config.url || ""].join(" ").trim();
+    var details = [];
+
+    if (err.code) {
+        details.push(err.code);
+    }
+    if (request) {
+        details.push(request);
+    }
+
+    var message = err.message || String(err);
+    return details.length ? message + " (" + details.join(", ") + ")" : message;
+}
+
 module.exports = function (homebridge) {
     Accessory = homebridge.platformAccessory;
     Service = homebridge.hap.Service;
@@ -49,7 +73,11 @@ function SunsynkPlatform(log, config) {
     // continuously and hammers the API. Fall back to the schema default.
     var minutes = Number(config.options.pollInterval);
     pollInterval = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60000;
-    lowbatt = config.options.lowbatt;
+    // A missing or invalid threshold left lowbatt undefined, and
+    // "soc < undefined" is always false, so the battery never reported low.
+    var lowRaw = config.options.lowbatt;
+    var lowPercent = lowRaw === undefined || lowRaw === null || lowRaw === "" ? NaN : Number(lowRaw);
+    lowbatt = Number.isFinite(lowPercent) && lowPercent >= 0 && lowPercent <= 100 ? lowPercent : 20;
 
     // Only an explicit false disables a sensor, so an existing config without
     // this key keeps publishing every sensor.
@@ -178,7 +206,7 @@ SunsynkPlatform.prototype = {
 
                 return true;
             } catch (err) {
-                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", err.message);
+                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", describeError(err));
                 return false;
             }
         }
@@ -262,7 +290,7 @@ SunsynkPlatform.prototype = {
                     }
                 }
             } catch (err) {
-                platform.log.warn('[Sunsynk] Polling failed:', err.message);
+                platform.log.warn('[Sunsynk] Polling failed:', describeError(err));
             }
         }
 
