@@ -4,6 +4,8 @@ This change log documents all release versions of homebridge-sunsynk
 
 ### Unreleased
 
+- **SECURITY** - The login request to Sunsynk now verifies the server's TLS certificate. Verification had been switched off for that one request, which is the request that sends the account username and password, so anyone able to intercept the connection could have presented a forged certificate and read them. Sunsynk's certificate is valid and verifies normally, so nothing changes for working setups.
+- **SECURITY** - Raised the minimum Axios version to `^1.20.0`, which resolves three high-severity advisories affecting versions up to 1.17, and removed the unused `string` and `debug` dependencies, both of which carry advisories of their own.
 - **FIX** - Errors are now always logged. They were previously only shown when "Enable Debug Logging" was switched on, so a configuration or API error could fail silently.
 - **FIX** - Warnings, errors and debug output now go through the Homebridge logger instead of straight to the console, so they carry Homebridge's timestamp and plugin name and appear in the Homebridge UI log like every other line.
 - **FIX** - "Setup failed" and "Polling failed" warnings now say which request failed and how, for example `Request failed with status code 502 (ERR_BAD_RESPONSE, GET /plant/123/realtime)`, so a Sunsynk outage can be told apart from a login or endpoint problem. Request bodies are never logged, because the login request carries the password.
