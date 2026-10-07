@@ -2,7 +2,7 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
-### Unreleased
+### 1.2.0-beta.4 (2026-10-07)
 
 - **FIX** - "Battery Power W" now shows the real wattage while the battery is charging. The Sunsynk API reports charging as negative power, and HomeKit's light sensor clamped anything below its minimum to 0.0001, so the sensor only ever showed a value while discharging. It now shows the magnitude in both directions; the Battery SOC charging state still shows which way power is flowing. The raw API value is written to the debug log.
 
