@@ -2,6 +2,10 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
+### Unreleased
+
+- **FIX** - "Battery Power W" now shows the real wattage while the battery is charging. The Sunsynk API reports charging as negative power, and HomeKit's light sensor clamped anything below its minimum to 0.0001, so the sensor only ever showed a value while discharging. It now shows the magnitude in both directions; the Battery SOC charging state still shows which way power is flowing. The raw API value is written to the debug log.
+
 ### 1.2.0-beta.3 (2026-10-06)
 
 - **SECURITY** - The login request to Sunsynk now verifies the server's TLS certificate. Verification had been switched off for that one request, which is the request that sends the account username and password, so anyone able to intercept the connection could have presented a forged certificate and read them. Sunsynk's certificate is valid and verifies normally, so nothing changes for working setups. ([#23](https://github.com/K1LL3R234/homebridge-sunsynk/pull/23))

@@ -251,7 +251,11 @@ SunsynkPlatform.prototype = {
                                 break;
 
                             case 'Battery Power W':
-                                allacc[i].changeHandler(batt_result.battPower);
+                                // The API reports charging as negative power, which the
+                                // light sensor would clamp to its 0.0001 minimum. Direction
+                                // is already shown by the Battery SOC charging state.
+                                platform.log.debug("Raw battPower:" + batt_result.battPower);
+                                allacc[i].changeHandler(Math.abs(Number(batt_result.battPower)) || 0);
                                 break;
 
                             case 'Load Power W':
