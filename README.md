@@ -87,7 +87,44 @@ The plugin uses the first plant on the Sunsynk account and the first inverter in
 }
 ```
 
-If a configured plant ID is not on the account, the log says so and lists the plants it found, and the plugin stops polling until the config is fixed. A configured inverter that is not found only switches off Grid Power, which is the one sensor that needs the inverter.
+If a configured plant ID is not on the account, the log says so and lists the plants it found, and the plugin stops polling until the config is fixed. A configured inverter that is not found only switches off what needs the inverter: Grid Power and the Apple Home Energy devices below.
+
+## Apple Home Energy (beta)
+
+> **Beta.** This relies on how iOS 27's Home app treats Matter electrical devices, which Apple has not documented. It works on the setup it was tested on, but an iOS or Homebridge update may change what the Home app shows or stop it working. Please report what you see in an issue.
+
+On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app's Energy views read:
+
+| Device | What it reports | How the Home app uses it |
+| --- | --- | --- |
+| Sunsynk Grid | Grid power, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
+| Sunsynk Load | House load power and lifetime energy used | Listed under All Home |
+| Sunsynk Solar | Inverter AC output as negative power, and its lifetime energy produced | Listed under All Home |
+
+To set it up:
+
+1. Run the plugin as a child bridge and switch Matter on for that bridge in the Homebridge settings.
+2. Restart Homebridge, then add the bridge to the Home app using its **Matter** QR code or pairing code. This is a separate pairing from the HomeKit one.
+3. Set the poll interval to 1 minute. Sunsynk's cloud updates about once a minute, so polling faster gains nothing.
+
+The devices are on by default once Matter is on, and each one can be switched off in the `matter` block. Load and solar are sensors by default, which have no room tile. Set `loadAs` or `pvAs` to `outlet` to get a tile with live watts instead; its switch stays on, because there is nothing to switch.
+
+```json
+"options": {
+    "username": "",
+    "password": "",
+    "pollInterval": 1,
+    "matter": {
+        "grid": true,
+        "load": true,
+        "loadAs": "sensor",
+        "pv": true,
+        "pvAs": "sensor"
+    }
+}
+```
+
+The HomeKit sensors keep working alongside. If you only want the Matter devices, switch the HomeKit ones off with the `sensors` block. Battery readings are not published over Matter yet, because the Home app shows Matter batteries as "Not Supported"; Battery SOC stays a HomeKit sensor.
 
 ## Thanks
 

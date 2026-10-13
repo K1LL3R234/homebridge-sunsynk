@@ -4,6 +4,7 @@ This change log documents all release versions of homebridge-sunsynk
 
 ### Unreleased
 
+- **FEATURE** - Apple Home Energy (beta): on Homebridge 2.4.0 or later with Matter switched on for the bridge, the grid meter, the house load and the solar output are also published as Matter electrical devices, which the iOS 27 Home app reads for its Energy views. The grid meter drives the All Home figure. Each device can be switched off, and load and solar can be shown as outlets for a room tile. See "Apple Home Energy (beta)" in the README. Nothing changes for bridges without Matter.
 - **FEATURE** - The plugin is now a dynamic platform: Homebridge keeps the sensors in its accessory cache and restores them at startup. Every sensor keeps the same HomeKit identity it had before, so rooms, custom names, scenes and automations carry over on upgrade with nothing to set up again. This is also what a future Matter accessory needs to survive a restart.
 - **FEATURE** - New optional `plantId` and `inverterSn` settings choose the plant and inverter on an account that has more than one. Without them the plugin uses the first of each as before, and the log lists every plant and inverter with its ID at startup so the right one can be copied into the config.
 - **FIX** - When Sunsynk rejects the access token before it is due to expire, for example after a login on another device, the plugin logs in again straight away instead of failing every poll until the expiry time.
