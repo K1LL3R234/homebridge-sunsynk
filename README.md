@@ -74,6 +74,21 @@ When every sensor that uses a given part of the Sunsynk API is switched off, tha
 
 **Turning a sensor off removes it from HomeKit on the next restart.** Anything attached to it in the Home app goes with it: automations, scenes, favourites, its room and any custom name you gave it. Turning it back on later adds it again as a new accessory, so you would need to set those up again.
 
+### More than one plant or inverter
+
+The plugin uses the first plant on the Sunsynk account and the first inverter in that plant. When there is more than one, the Homebridge log lists each of them with its ID at startup. Copy the one you want into `plantId` or `inverterSn`:
+
+```json
+"options": {
+    "username": "",
+    "password": "",
+    "plantId": "123456",
+    "inverterSn": "2301234567"
+}
+```
+
+If a configured plant ID is not on the account, the log says so and lists the plants it found, and the plugin stops polling until the config is fixed. A configured inverter that is not found only switches off Grid Power, which is the one sensor that needs the inverter.
+
 ## Thanks
 
 A big thank you to [atdr](https://github.com/atdr) for the contributions to this plugin: the option to choose which sensors get published, and the fixes for the plugin stopping after a failed poll and crashing when the inverter is not in its normal state. The reports and the pull requests were both thorough and tested on real hardware, and the plugin is a lot more robust for it.

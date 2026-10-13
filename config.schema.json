@@ -51,6 +51,16 @@
                         "default": false,
                         "required": true
                     },
+                    "plantId": {
+                        "title": "Plant ID",
+                        "type": "string",
+                        "description": "Optional. Only needed when the Sunsynk account has more than one plant. Leave empty to use the first; the Homebridge log lists every plant with its ID at startup."
+                    },
+                    "inverterSn": {
+                        "title": "Inverter Serial Number",
+                        "type": "string",
+                        "description": "Optional. Only needed when the plant has more than one inverter. Leave empty to use the first; the Homebridge log lists every inverter with its serial number at startup."
+                    },
                     "sensors": {
                         "title": "Sensors",
                         "type": "object",

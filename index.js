@@ -202,36 +202,50 @@ class SunsynkPlatform {
                 return false;
             }
 
-            this.plantId = result.infos[0].id;
+            var plant = this.choose("plant", result.infos, this.config.options.plantId, function (info) { return info.id; }, "Plant ID");
+            if (!plant) {
+                this.log.error("[Sunsynk] Fix the plant ID in the config and restart Homebridge.");
+                this.stopped = true;
+                return false;
+            }
+            this.plantId = plant.id;
 
             // The inverter serial number is only needed for the grid endpoint.
             // Search every API state so a fault or offline inverter does not
             // make the child bridge crash during startup.
             if (this.needGrid) {
                 var inverterStatuses = [1, 2, 3, 4, 0];
-                var inverter;
+                var inverters = [];
 
                 for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
                     var par = {
                         page: 1,               // current page number (required)
-                        limit: 1,              // page size (required)
+                        limit: 20,             // page size (required)
                         status: inverterStatuses[statusIndex],
                         plantId: this.plantId, // Plant ID (optional)
                         type: -1,              // 1: grid, 2: ess, -1: all (required)
                     };
 
                     var in_result = await api.get("/inverters", par, null);
-                    if (in_result && Array.isArray(in_result.infos) && in_result.infos.length > 0) {
-                        inverter = in_result.infos[0];
-                        break;
+                    if (in_result && Array.isArray(in_result.infos)) {
+                        for (var info of in_result.infos) {
+                            if (info && info.sn && !inverters.some(function (known) { return known.sn === info.sn; })) {
+                                inverters.push(info);
+                            }
+                        }
                     }
                 }
 
                 // Every state answered and none of them held an inverter, so
                 // this is the API's real answer rather than an outage. Stop
                 // asking for grid data instead of retrying it forever.
-                if (!inverter || !inverter.sn) {
-                    this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                var inverter = inverters.length ? this.choose("inverter", inverters, this.config.options.inverterSn, function (info) { return info.sn; }, "Inverter Serial Number") : null;
+                if (!inverter) {
+                    if (!inverters.length) {
+                        this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                    } else {
+                        this.log.error("[Sunsynk] Grid Power will be unavailable until the inverter serial number in the config is fixed.");
+                    }
                     this.needGrid = false;
                 } else {
                     this.inverterSn = inverter.sn;
@@ -245,7 +259,41 @@ class SunsynkPlatform {
         }
     }
 
+    // Pick the plant or inverter to use. With an ID configured, use that one,
+    // or log what the account has when it is not there. Without one, use the
+    // first, and when there is more than one, list them so the right ID can
+    // be copied into the config.
+    choose(kind, infos, wanted, idOf, setting) {
+        var describe = function (info) {
+            return idOf(info) + (info.name || info.alias ? " (" + (info.name || info.alias) + ")" : "");
+        };
+
+        if (wanted !== undefined && wanted !== null && String(wanted).trim() !== "") {
+            var match = infos.find(function (info) { return String(idOf(info)) === String(wanted).trim(); });
+            if (match) {
+                this.log.log("Using " + kind + " " + describe(match) + ".");
+                return match;
+            }
+
+            this.log.error("[Sunsynk] The configured " + kind + " " + wanted + " was not found. This account has: " + infos.map(describe).join(", ") + ".");
+            return null;
+        }
+
+        if (infos.length > 1) {
+            this.log.log("Found " + infos.length + " " + kind + "s: " + infos.map(describe).join(", ") + ". Set \"" + setting + "\" in the config to choose one.");
+        }
+
+        this.log.log("Using " + kind + " " + describe(infos[0]) + ".");
+        return infos[0];
+    }
+
     async processData() {
+        // A configured plant or inverter that the account does not have will
+        // not appear by retrying, so stop until the config is fixed.
+        if (this.stopped) {
+            return;
+        }
+
         if (!this.discovered) {
             this.discovered = await this.discover();
 
