@@ -376,20 +376,30 @@ class SunsynkAccessory {
                 break;
 
             case "batterySoc":
+                var soc = Number(data.soc);
+                if (data.soc === undefined || data.soc === null || !Number.isFinite(soc)) {
+                    log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+                    break;
+                }
+
                 var state = Characteristic.ChargingState.NOT_CHARGING;
 
                 if (data.toBat) {
                     state = Characteristic.ChargingState.CHARGING;
                 }
 
-                this.battery.getCharacteristic(Characteristic.BatteryLevel).updateValue(data.soc);
+                this.battery.getCharacteristic(Characteristic.BatteryLevel).updateValue(soc);
                 this.battery.getCharacteristic(Characteristic.ChargingState).updateValue(state);
-                this.battery.getCharacteristic(Characteristic.StatusLowBattery).updateValue(data.soc < this.platform.lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
-                this.service.getCharacteristic(Characteristic.CurrentRelativeHumidity).updateValue(data.soc);
-                log.debug("New Value:" + data.soc);
+                this.battery.getCharacteristic(Characteristic.StatusLowBattery).updateValue(soc < this.platform.lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
+                this.service.getCharacteristic(Characteristic.CurrentRelativeHumidity).updateValue(soc);
+                log.debug("New Value:" + soc);
                 break;
 
             case "gridPower":
+                if (data.acRealyStatus === undefined || data.acRealyStatus === null) {
+                    log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+                    break;
+                }
                 this.service.getCharacteristic(Characteristic.On).updateValue(data.acRealyStatus);
                 log.debug("New Status:" + data.acRealyStatus);
                 break;
@@ -397,6 +407,14 @@ class SunsynkAccessory {
     }
 
     setLight(value) {
+        // A field missing from the response would reach HomeKit as undefined,
+        // which HAP rejects with a warning. Keep the last value instead.
+        value = Number(value);
+        if (!Number.isFinite(value)) {
+            this.platform.log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+            return;
+        }
+
         if (value < 0.0001) {
             value = 0.0001;
         }
