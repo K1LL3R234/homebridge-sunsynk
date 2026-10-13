@@ -246,28 +246,38 @@ class SunsynkPlatform {
     }
 
     async processData() {
-        var api = this.client;
+        if (!this.discovered) {
+            this.discovered = await this.discover();
 
-        try {
             if (!this.discovered) {
-                this.discovered = await this.discover();
+                return;
+            }
+        }
 
-                if (!this.discovered) {
-                    return;
+        // Each endpoint is fetched on its own, so one that fails only leaves
+        // its own sensors stale for this poll instead of all of them.
+        var endpoints = {
+            realtime: this.needRealtime && `/plant/${this.plantId}/realtime`,
+            flow: this.needFlow && `/plant/energy/${this.plantId}/flow`,
+            grid: this.needGrid && `/inverter/grid/${this.inverterSn}/realtime`
+        };
+
+        for (var source of Object.keys(endpoints)) {
+            if (!endpoints[source]) {
+                continue;
+            }
+
+            try {
+                var data = await this.client.get(endpoints[source], null, null);
+
+                for (var accessory of this.accessories) {
+                    if (accessory.sensor.source === source) {
+                        accessory.update(data);
+                    }
                 }
+            } catch (err) {
+                this.log.warn('[Sunsynk] Polling failed:', describeError(err));
             }
-
-            var data = {
-                realtime: this.needRealtime ? await api.get(`/plant/${this.plantId}/realtime`, null, null) : null,
-                flow: this.needFlow ? await api.get(`/plant/energy/${this.plantId}/flow`, null, null) : null,
-                grid: this.needGrid ? await api.get(`/inverter/grid/${this.inverterSn}/realtime`, null, null) : null
-            };
-
-            for (var accessory of this.accessories) {
-                accessory.update(data[accessory.sensor.source]);
-            }
-        } catch (err) {
-            this.log.warn('[Sunsynk] Polling failed:', describeError(err));
         }
     }
 }
