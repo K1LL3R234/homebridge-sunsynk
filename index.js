@@ -264,8 +264,12 @@ class SunsynkPlatform {
     // first, and when there is more than one, list them so the right ID can
     // be copied into the config.
     choose(kind, infos, wanted, idOf, setting) {
+        // Inverters are often named after their serial number, so only show a
+        // name that adds something.
         var describe = function (info) {
-            return idOf(info) + (info.name || info.alias ? " (" + (info.name || info.alias) + ")" : "");
+            var id = idOf(info);
+            var name = info.name || info.alias;
+            return id + (name && String(name) !== String(id) ? " (" + name + ")" : "");
         };
 
         if (wanted !== undefined && wanted !== null && String(wanted).trim() !== "") {
