@@ -61,6 +61,47 @@
                         "type": "string",
                         "description": "Optional. Only needed when the plant has more than one inverter. Leave empty to use the first; the Homebridge log lists every inverter with its serial number at startup."
                     },
+                    "matter": {
+                        "title": "Apple Home Energy (beta)",
+                        "type": "object",
+                        "description": "Publishes the grid meter, the house load and the solar output as Matter electrical devices, which the Home app's Energy views read. Needs Homebridge 2.4.0 or later with Matter switched on for this bridge; without Matter these settings do nothing. This is a beta: it relies on how iOS 27 treats these devices, which Apple has not documented, so it may change or stop working with an iOS update.",
+                        "properties": {
+                            "grid": {
+                                "title": "Grid meter",
+                                "type": "boolean",
+                                "default": true,
+                                "description": "Whole home import and export. The Home app uses this for its All Home figure."
+                            },
+                            "load": {
+                                "title": "House load",
+                                "type": "boolean",
+                                "default": true
+                            },
+                            "loadAs": {
+                                "title": "Show the house load as",
+                                "type": "string",
+                                "default": "sensor",
+                                "oneOf": [
+                                    { "title": "Sensor (listed under All Home, no room tile)", "enum": ["sensor"] },
+                                    { "title": "Outlet (room tile with live watts, its switch stays on)", "enum": ["outlet"] }
+                                ]
+                            },
+                            "pv": {
+                                "title": "Solar output",
+                                "type": "boolean",
+                                "default": true
+                            },
+                            "pvAs": {
+                                "title": "Show the solar output as",
+                                "type": "string",
+                                "default": "sensor",
+                                "oneOf": [
+                                    { "title": "Sensor (negative watts, listed under All Home, no room tile)", "enum": ["sensor"] },
+                                    { "title": "Outlet (room tile with live watts, its switch stays on)", "enum": ["outlet"] }
+                                ]
+                            }
+                        }
+                    },
                     "sensors": {
                         "title": "Sensors",
                         "type": "object",

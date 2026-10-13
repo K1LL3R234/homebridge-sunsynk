@@ -4,6 +4,8 @@ const SunsynkAPI = require("./lib/sunsynkAPI");
 
 const LogUtil = require('./util/logutil');
 
+const { DEVICES: MATTER_DEVICES, MatterEnergyDevice, waitUntilRegistered } = require("./lib/matterEnergy");
+
 const PLUGIN_NAME = "homebridge-sunsynk";
 const PLATFORM_NAME = "Sunsynk";
 
@@ -66,6 +68,7 @@ class SunsynkPlatform {
         this.api = api;
         this.config = config || {};
         this.cached = new Map();
+        this.cachedMatter = new Map();
         this.valid = false;
 
         if (!config || !config.options || !config.options.username || !config.options.password) {
@@ -93,6 +96,7 @@ class SunsynkPlatform {
         // Only an explicit false disables a sensor, so an existing config without
         // this key keeps publishing every sensor.
         this.sensors = config.options.sensors || {};
+        this.matterOptions = config.options.matter || {};
 
         this.appKey = "204013305";
         this.appSecret = "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm";
@@ -102,6 +106,7 @@ class SunsynkPlatform {
         // is assigned new HomeKit IDs instead of reusing the cached ones.
         api.on("didFinishLaunching", () => {
             this.syncAccessories();
+            this.matterReady = this.syncMatterAccessories();
             this.startPolling();
         });
     }
@@ -110,6 +115,12 @@ class SunsynkPlatform {
     // didFinishLaunching.
     configureAccessory(accessory) {
         this.cached.set(accessory.UUID, accessory);
+    }
+
+    // Called by Homebridge for every Matter accessory in its cache, before
+    // didFinishLaunching. Registering the same UUID again attaches to it.
+    configureMatterAccessory(accessory) {
+        this.cachedMatter.set(accessory.UUID, accessory);
     }
 
     uuidFor(sensor) {
@@ -159,22 +170,91 @@ class SunsynkPlatform {
         }
 
         if (active.length === 0) {
-            this.log.log("Every sensor is disabled in the configuration, nothing to publish.");
+            this.log.log("Every HomeKit sensor is disabled in the configuration.");
         } else {
             this.log.log("Publishing " + active.length + " of " + SENSORS.length + " sensors.");
         }
     }
 
+    // Apple Home Energy (beta). Only on a bridge with Matter switched on, and
+    // only for the devices left enabled under options.matter. Returns a
+    // promise that settles once Homebridge has registered them, so the first
+    // poll does not update a device that does not exist yet.
+    syncMatterAccessories() {
+        this.matterDevices = [];
+
+        var matter = this.api.matter;
+        var enabled = typeof this.api.isMatterEnabled === "function" && this.api.isMatterEnabled() && matter;
+
+        if (!enabled) {
+            var message = "Matter is not enabled on this bridge, so the Apple Home Energy devices are not published.";
+            if (this.config.options.matter !== undefined) {
+                this.log.log(message + " To use them, switch Matter on for this bridge in the Homebridge settings (Homebridge 2.4.0 or later).");
+            } else {
+                this.log.debug(message);
+            }
+            return Promise.resolve();
+        }
+
+        var options = this.matterOptions;
+        for (var device of MATTER_DEVICES) {
+            if (options[device.id] === false) {
+                continue;
+            }
+            var asOutlet = options[device.id + "As"] === "outlet";
+            this.matterDevices.push(new MatterEnergyDevice(this, device, asOutlet));
+        }
+
+        var wanted = new Set(this.matterDevices.map(function (device) { return device.UUID; }));
+        var removed = [];
+        for (var [uuid, cached] of this.cachedMatter) {
+            if (!wanted.has(uuid)) {
+                removed.push(cached);
+            }
+        }
+
+        var accessories = this.matterDevices.map(function (device) { return device.accessory; });
+
+        return (async () => {
+            try {
+                if (removed.length) {
+                    await matter.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, removed);
+                }
+                if (accessories.length) {
+                    await matter.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories);
+                    var ready = await waitUntilRegistered(matter, accessories.map(function (accessory) { return accessory.UUID; }), 30000);
+                    if (!ready) {
+                        this.log.warn("[Sunsynk] The Apple Home Energy devices took more than 30 seconds to register; the first readings may be missed.");
+                    }
+                }
+                this.log.log("Publishing " + accessories.length + " of " + MATTER_DEVICES.length + " Apple Home Energy devices over Matter (beta)" +
+                    (accessories.length ? ": " + this.matterDevices.map(function (device) { return device.device.name + (device.asOutlet ? " (outlet)" : ""); }).join(", ") : "") + ".");
+            } catch (err) {
+                this.log.error("[Sunsynk] Could not publish the Apple Home Energy devices:", describeError(err));
+                this.matterDevices = [];
+            }
+        })();
+    }
+
     startPolling() {
-        if (!this.valid || this.accessories.length === 0) {
+        // Everything that takes readings: the HomeKit sensors and the Matter
+        // devices, each listing the endpoints it reads.
+        this.consumers = this.accessories.concat(this.matterDevices);
+
+        if (!this.valid || this.consumers.length === 0) {
             return;
         }
 
         // Only poll an endpoint when something still consumes it.
-        var active = this.accessories.map(function (accessory) { return accessory.sensor; });
-        this.needRealtime = active.some(function (sensor) { return sensor.source === "realtime"; });
-        this.needFlow = active.some(function (sensor) { return sensor.source === "flow"; });
-        this.needGrid = active.some(function (sensor) { return sensor.source === "grid"; });
+        var sources = new Set();
+        for (var consumer of this.consumers) {
+            for (var source of consumer.sources) {
+                sources.add(source);
+            }
+        }
+        this.sources = sources;
+        // Everything but the plant endpoints is looked up by inverter.
+        this.needInverter = ["grid", "load", "output", "input"].some(function (source) { return sources.has(source); });
 
         this.client = new SunsynkAPI(this.username, this.password, this.appKey, this.appSecret, this.log);
 
@@ -210,10 +290,10 @@ class SunsynkPlatform {
             }
             this.plantId = plant.id;
 
-            // The inverter serial number is only needed for the grid endpoint.
-            // Search every API state so a fault or offline inverter does not
-            // make the child bridge crash during startup.
-            if (this.needGrid) {
+            // The inverter serial number is only needed for the inverter
+            // endpoints. Search every API state so a fault or offline
+            // inverter does not make the child bridge crash during startup.
+            if (this.needInverter) {
                 var inverterStatuses = [1, 2, 3, 4, 0];
                 var inverters = [];
 
@@ -241,12 +321,13 @@ class SunsynkPlatform {
                 // asking for grid data instead of retrying it forever.
                 var inverter = inverters.length ? this.choose("inverter", inverters, this.config.options.inverterSn, function (info) { return info.sn; }, "Inverter Serial Number") : null;
                 if (!inverter) {
+                    var affected = this.inverterDependents();
                     if (!inverters.length) {
-                        this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                        this.log.warn("[Sunsynk] No inverter was returned by the API; " + affected + " will be unavailable.");
                     } else {
-                        this.log.error("[Sunsynk] Grid Power will be unavailable until the inverter serial number in the config is fixed.");
+                        this.log.error("[Sunsynk] " + affected + " will be unavailable until the inverter serial number in the config is fixed.");
                     }
-                    this.needGrid = false;
+                    this.needInverter = false;
                 } else {
                     this.inverterSn = inverter.sn;
                 }
@@ -257,6 +338,18 @@ class SunsynkPlatform {
             this.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", describeError(err));
             return false;
         }
+    }
+
+    // Name what stops working without an inverter, for the log.
+    inverterDependents() {
+        var names = [];
+        if (this.accessories.some(function (accessory) { return accessory.sensor.source === "grid"; })) {
+            names.push("Grid Power");
+        }
+        if (this.matterDevices.length) {
+            names.push("the Apple Home Energy devices");
+        }
+        return names.join(" and ");
     }
 
     // Pick the plant or inverter to use. With an ID configured, use that one,
@@ -306,25 +399,32 @@ class SunsynkPlatform {
             }
         }
 
+        await this.matterReady;
+
         // Each endpoint is fetched on its own, so one that fails only leaves
         // its own sensors stale for this poll instead of all of them.
+        var plant = this.plantId;
+        var sn = this.needInverter && this.inverterSn;
         var endpoints = {
-            realtime: this.needRealtime && `/plant/${this.plantId}/realtime`,
-            flow: this.needFlow && `/plant/energy/${this.plantId}/flow`,
-            grid: this.needGrid && `/inverter/grid/${this.inverterSn}/realtime`
+            realtime: `/plant/${plant}/realtime`,
+            flow: `/plant/energy/${plant}/flow`,
+            grid: sn && `/inverter/grid/${sn}/realtime`,
+            load: sn && `/inverter/load/${sn}/realtime`,
+            output: sn && `/inverter/${sn}/realtime/output`,
+            input: sn && `/inverter/${sn}/realtime/input`
         };
 
         for (var source of Object.keys(endpoints)) {
-            if (!endpoints[source]) {
+            if (!this.sources.has(source) || !endpoints[source]) {
                 continue;
             }
 
             try {
                 var data = await this.client.get(endpoints[source], null, null);
 
-                for (var accessory of this.accessories) {
-                    if (accessory.sensor.source === source) {
-                        accessory.update(data);
+                for (var consumer of this.consumers) {
+                    if (consumer.sources.includes(source)) {
+                        await consumer.update(data, source);
                     }
                 }
             } catch (err) {
@@ -345,6 +445,7 @@ class SunsynkAccessory {
         this.platform = platform;
         this.accessory = accessory;
         this.sensor = sensor;
+        this.sources = [sensor.source];
         this.Characteristic = Characteristic;
 
         var shasum = crypto.createHash('sha1');
