@@ -64,7 +64,7 @@
                     "matter": {
                         "title": "Apple Home Energy (beta)",
                         "type": "object",
-                        "description": "Publishes the grid meter, the house load and the solar output as Matter electrical devices, which the Home app's Energy views read. Needs Homebridge 2.4.0 or later with Matter switched on for this bridge; without Matter these settings do nothing. This is a beta: it relies on how iOS 27 treats these devices, which Apple has not documented, so it may change or stop working with an iOS update.",
+                        "description": "Publishes the grid meter, the house load and the solar output as Matter electrical devices, which the Home app shows under its Energy filter. Needs Homebridge 2.4.0 or later with Matter switched on for this bridge; without Matter these settings do nothing. This is a beta: it relies on how iOS 27 treats these devices, which Apple has not documented, so it may change or stop working with an iOS update.",
                         "properties": {
                             "grid": {
                                 "title": "Grid meter",

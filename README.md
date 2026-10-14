@@ -93,13 +93,15 @@ If a configured plant ID is not on the account, the log says so and lists the pl
 
 > **Beta.** This relies on how iOS 27's Home app treats Matter electrical devices, which Apple has not documented. It works on the setup it was tested on, but an iOS or Homebridge update may change what the Home app shows or stop it working. Please report what you see in an issue.
 
-On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app's Energy views read:
+On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app shows under its Energy filter:
 
 | Device | What it reports | How the Home app uses it |
 | --- | --- | --- |
 | Sunsynk Grid | Grid power, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
 | Sunsynk Load | House load power and lifetime energy used | Listed under All Home |
 | Sunsynk Solar | Inverter AC output as negative power, and its lifetime energy produced | Listed under All Home |
+
+The Energy filter shows live power only. The lifetime totals are published as well, but the Home app did not show any energy history for them in testing outside the US, where Apple's Energy tab is not offered.
 
 To set it up:
 
