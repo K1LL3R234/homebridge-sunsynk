@@ -109,7 +109,7 @@ To set it up:
 2. Restart Homebridge, then add the bridge to the Home app using its **Matter** QR code or pairing code. This is a separate pairing from the HomeKit one.
 3. Set the poll interval to 1 minute. Sunsynk's cloud updates about once a minute, so polling faster gains nothing.
 
-The devices are on by default once Matter is on, and each one can be switched off in the `matter` block. Load and solar are sensors by default, which have no room tile. Set `loadAs` or `pvAs` to `outlet` to get a tile with live watts instead; its switch stays on, because there is nothing to switch.
+The devices are on by default once Matter is on, and each one can be switched off in the `matter` block. Load and solar are sensors by default, which have no room tile. Set `loadAs` or `pvAs` to `outlet` to get a tile with live watts instead; its switch stays on, because there is nothing to switch. Switching between sensor and outlet replaces the device in the Home app, so its room and any custom name need setting again.
 
 ```json
 "options": {
