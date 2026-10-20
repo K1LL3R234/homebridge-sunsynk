@@ -99,7 +99,7 @@ On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin 
 | --- | --- | --- |
 | Sunsynk Grid | Grid power, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
 | Sunsynk Load | House load power and lifetime energy used | Listed under All Home |
-| Sunsynk Solar | Inverter AC output as negative power, and its lifetime energy produced | Listed under All Home |
+| Sunsynk Solar | Inverter AC output as negative power (0 W at night, rather than the inverter's own standby draw), and its lifetime energy produced | Listed under All Home |
 
 The Energy filter shows live power only. The lifetime totals are published as well, but the Home app did not show any energy history for them in testing outside the US, where Apple's Energy tab is not offered.
 
