@@ -116,7 +116,7 @@
                     "matter": {
                         "title": "Apple Home Energy (beta)",
                         "type": "object",
-                        "description": "Publishes the grid meter, the house load and the solar output as Matter electrical devices, which the Home app shows under its Energy filter. Needs Homebridge 2.4.0 or later with Matter switched on for this bridge; without Matter these settings do nothing. This is a beta: it relies on how iOS 27 treats these devices, which Apple has not documented, so it may change or stop working with an iOS update.",
+                        "description": "Publishes the grid meter, the house load and the solar output as Matter electrical devices, which the Home app shows under its Energy filter. Needs Homebridge 2.4.0 or later with Matter switched on for this bridge; without Matter these settings do nothing. After changing them, remove the bridge from the Home app and pair it again, because the Home app often ignores a device added to a paired bridge. This is a beta: it relies on how iOS 27 treats these devices, which Apple has not documented, so it may change or stop working with an iOS update.",
                         "properties": {
                             "grid": {
                                 "title": "Grid meter",
@@ -135,7 +135,7 @@
                                 "default": "sensor",
                                 "oneOf": [
                                     { "title": "Sensor (listed under All Home, no room tile)", "enum": ["sensor"] },
-                                    { "title": "Outlet (room tile with live watts, its switch stays on)", "enum": ["outlet"] }
+                                    { "title": "Outlet (room tile with live watts, not listed under All Home)", "enum": ["outlet"] }
                                 ]
                             },
                             "pv": {
@@ -149,7 +149,7 @@
                                 "default": "sensor",
                                 "oneOf": [
                                     { "title": "Sensor (negative watts, listed under All Home, no room tile)", "enum": ["sensor"] },
-                                    { "title": "Outlet (room tile with live watts, its switch stays on)", "enum": ["outlet"] }
+                                    { "title": "Outlet (room tile with live watts, not listed under All Home)", "enum": ["outlet"] }
                                 ]
                             }
                         }
