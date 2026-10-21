@@ -2,6 +2,14 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
+### Unreleased
+
+- **FEATURE** - The plugin is now a dynamic platform: Homebridge keeps the sensors in its accessory cache and restores them at startup. Every sensor keeps the same HomeKit identity it had before, so rooms, custom names, scenes and automations carry over on upgrade with nothing to set up again. This is also what a future Matter accessory needs to survive a restart.
+- **FEATURE** - New optional `plantId` and `inverterSn` settings choose the plant and inverter on an account that has more than one. Without them the plugin uses the first of each as before, and the log lists every plant and inverter with its ID at startup so the right one can be copied into the config.
+- **FIX** - When Sunsynk rejects the access token before it is due to expire, for example after a login on another device, the plugin logs in again straight away instead of failing every poll until the expiry time.
+- **FIX** - Each part of the Sunsynk API is now polled on its own, so a failure on one only leaves its own sensors at their last value instead of all of them.
+- **FIX** - A reading missing from the API response keeps the sensor's last value, instead of HomeKit logging a characteristic warning.
+
 ### 1.2.0 (2026-10-07)
 
 - **RELEASE** - Stable release of the 1.2.0 betas, with no changes since 1.2.0-beta.4. Upgrading from 1.1.5 picks up every entry from 1.2.0-beta.1 to 1.2.0-beta.4 below. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for a summary.

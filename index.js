@@ -1,19 +1,27 @@
-var Service;
-var Characteristic;
-var Accessory;
-var crypto = require("crypto");
-
+const crypto = require("crypto");
 
 const SunsynkAPI = require("./lib/sunsynkAPI");
 
 const LogUtil = require('./util/logutil');
 
-var plant_id = 0;
-var plant_sn;
-var pollInterval = 10;
-var lowbatt = 20;
+const PLUGIN_NAME = "homebridge-sunsynk";
+const PLATFORM_NAME = "Sunsynk";
 
-var handler_change = false;
+// Sensor catalogue. "name" is used to derive the HomeKit UUID and the serial
+// number, so changing a name recreates the accessory in HomeKit and breaks any
+// automation that uses it. These strings must stay exactly as they are.
+// "source" says which polled endpoint feeds the sensor.
+const SENSORS = [
+    { "id": "currentPvPower", "name": "Current PV Power W", "type": "pv", "source": "realtime" },
+    { "id": "todayPvEnergy", "name": "Today PV Electricity kWh", "type": "pv", "source": "realtime" },
+    { "id": "monthPvEnergy", "name": "Month PV Electricity kWh", "type": "pv", "source": "realtime" },
+    { "id": "yearPvEnergy", "name": "Year PV Electricity kWh", "type": "pv", "source": "realtime" },
+    { "id": "totalPvEnergy", "name": "Total PV Electricity kWh", "type": "pv", "source": "realtime" },
+    { "id": "batteryPower", "name": "Battery Power W", "type": "pv", "source": "flow" },
+    { "id": "batterySoc", "name": "Battery SOC", "type": "batt", "source": "flow" },
+    { "id": "loadPower", "name": "Load Power W", "type": "pv", "source": "flow" },
+    { "id": "gridPower", "name": "Grid Power", "type": "pow", "source": "grid" }
+];
 
 // Describe a failed API call for the log: the error message plus, when axios
 // provides them, the error code and the request method and path, so an outage
@@ -39,414 +47,431 @@ function describeError(err) {
     return details.length ? message + " (" + details.join(", ") + ")" : message;
 }
 
-module.exports = function (homebridge) {
-    Accessory = homebridge.platformAccessory;
-    Service = homebridge.hap.Service;
-    Characteristic = homebridge.hap.Characteristic;
+module.exports = function (api) {
+    api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, SunsynkPlatform);
+};
 
-    homebridge.registerAccessory("homebridge-sunsynk", "Sunsynk", SunsynkAccessory);
-    homebridge.registerPlatform("homebridge-sunsynk", "Sunsynk", SunsynkPlatform);
-}
+// A dynamic platform: Homebridge restores the accessories from its cache
+// before this plugin does anything, so they stay in HomeKit with their rooms,
+// names and automations even when the Sunsynk API is down at startup.
+//
+// Before 1.3.0 this was a static platform. Homebridge derived each accessory's
+// UUID from "<platform>:<name>", and HomeKit keys its rooms and automations on
+// that UUID plus the service and characteristic types, so the accessories here
+// are created with exactly the same UUIDs, services and characteristics. That
+// keeps an upgraded install's HomeKit setup intact.
+class SunsynkPlatform {
+    constructor(log, config, api) {
+        this.hbLog = log;
+        this.api = api;
+        this.config = config || {};
+        this.cached = new Map();
+        this.valid = false;
 
-function SunsynkPlatform(log, config) {
-    this.valid = false;
-
-    if (!config || !config.options || !config.options.username || !config.options.password) {
-        log.warn("[Sunsynk] Missing or incomplete configuration. Plugin will not start.");
-        return;
-    }
-
-    this.valid = true;
-
-    this.log = new LogUtil(config.options.debug, config.name, log);
-
-    this.username = config.options.username;
-    this.password = config.options.password;
-
-    // Validate username and password
-    if (!this.username || !this.password) {
-        this.log.error("Username or password is missing in the configuration. Please check your config file.");
-        return;
-    }
-
-    // A missing or invalid interval leaves setInterval with NaN, which fires
-    // continuously and hammers the API. Fall back to the schema default.
-    var minutes = Number(config.options.pollInterval);
-    pollInterval = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60000;
-    // A missing or invalid threshold left lowbatt undefined, and
-    // "soc < undefined" is always false, so the battery never reported low.
-    var lowRaw = config.options.lowbatt;
-    var lowPercent = lowRaw === undefined || lowRaw === null || lowRaw === "" ? NaN : Number(lowRaw);
-    lowbatt = Number.isFinite(lowPercent) && lowPercent >= 0 && lowPercent <= 100 ? lowPercent : 20;
-
-    // Only an explicit false disables a sensor, so an existing config without
-    // this key keeps publishing every sensor.
-    this.sensors = config.options.sensors || {};
-
-    this.appKey = "204013305";
-    this.appSecret = "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm";
-
-    //this.plant_id = 0;
-}
-
-SunsynkPlatform.prototype = {
-    accessories: async function (callback) {
-
-        if (!this.valid) {
-            this.log?.warn("[Sunsynk] Skipping accessory registration due to invalid configuration.");
-            callback([]);
+        if (!config || !config.options || !config.options.username || !config.options.password) {
+            log.warn("[Sunsynk] Missing or incomplete configuration. Plugin will not start.");
             return;
         }
 
-        // Sensor catalogue. "name" is used by Homebridge to derive the HomeKit
-        // UUID and by SunsynkAccessory to derive the serial number, so changing
-        // a name recreates the accessory in HomeKit and breaks any automation
-        // that uses it. These strings must stay exactly as they are.
-        // "source" says which polled endpoint feeds the sensor.
-        var sensors = [
-            { "id": "currentPvPower", "name": "Current PV Power W", "type": "pv", "source": "realtime" },
-            { "id": "todayPvEnergy", "name": "Today PV Electricity kWh", "type": "pv", "source": "realtime" },
-            { "id": "monthPvEnergy", "name": "Month PV Electricity kWh", "type": "pv", "source": "realtime" },
-            { "id": "yearPvEnergy", "name": "Year PV Electricity kWh", "type": "pv", "source": "realtime" },
-            { "id": "totalPvEnergy", "name": "Total PV Electricity kWh", "type": "pv", "source": "realtime" },
-            { "id": "batteryPower", "name": "Battery Power W", "type": "pv", "source": "flow" },
-            { "id": "batterySoc", "name": "Battery SOC", "type": "batt", "source": "flow" },
-            { "id": "loadPower", "name": "Load Power W", "type": "pv", "source": "flow" },
-            { "id": "gridPower", "name": "Grid Power", "type": "pow", "source": "grid" }
-        ];
+        this.valid = true;
 
+        this.log = new LogUtil(config.options.debug, config.name, log);
+
+        this.username = config.options.username;
+        this.password = config.options.password;
+
+        // A missing or invalid interval leaves setInterval with NaN, which fires
+        // continuously and hammers the API. Fall back to the schema default.
+        var minutes = Number(config.options.pollInterval);
+        this.pollInterval = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60000;
+        // A missing or invalid threshold left lowbatt undefined, and
+        // "soc < undefined" is always false, so the battery never reported low.
+        var lowRaw = config.options.lowbatt;
+        var lowPercent = lowRaw === undefined || lowRaw === null || lowRaw === "" ? NaN : Number(lowRaw);
+        this.lowbatt = Number.isFinite(lowPercent) && lowPercent >= 0 && lowPercent <= 100 ? lowPercent : 20;
+
+        // Only an explicit false disables a sensor, so an existing config without
+        // this key keeps publishing every sensor.
+        this.sensors = config.options.sensors || {};
+
+        this.appKey = "204013305";
+        this.appSecret = "zIQJeoPRXCjDV5anS5WIH7SQPAgdVaPm";
+
+        // Registration has to happen synchronously in this event: Homebridge
+        // publishes the bridge straight after it, and anything registered later
+        // is assigned new HomeKit IDs instead of reusing the cached ones.
+        api.on("didFinishLaunching", () => {
+            this.syncAccessories();
+            this.startPolling();
+        });
+    }
+
+    // Called by Homebridge for every accessory in its cache, before
+    // didFinishLaunching.
+    configureAccessory(accessory) {
+        this.cached.set(accessory.UUID, accessory);
+    }
+
+    uuidFor(sensor) {
+        // Matches the UUID Homebridge generated for the static platform, which
+        // used the "platform" value from config.json as the prefix.
+        return this.api.hap.uuid.generate(`${this.config.platform || PLATFORM_NAME}:${sensor.name}`);
+    }
+
+    syncAccessories() {
         var selected = this.sensors;
-        var active = sensors.filter(function (sensor) {
+        var active = SENSORS.filter(function (sensor) {
             return selected[sensor.id] !== false;
         });
 
+        var wanted = new Set();
+        var added = [];
+        this.accessories = [];
+
+        for (var sensor of active) {
+            var uuid = this.uuidFor(sensor);
+            wanted.add(uuid);
+
+            var accessory = this.cached.get(uuid);
+            if (!accessory) {
+                accessory = new this.api.platformAccessory(sensor.name, uuid);
+                added.push(accessory);
+            }
+            accessory.context.sensorId = sensor.id;
+
+            this.accessories.push(new SunsynkAccessory(this, accessory, sensor));
+        }
+
+        // Sensors unticked in the config, and anything left over in the cache
+        // that this plugin no longer publishes, are removed from HomeKit.
+        var removed = [];
+        for (var [cachedUuid, cachedAccessory] of this.cached) {
+            if (!wanted.has(cachedUuid)) {
+                removed.push(cachedAccessory);
+            }
+        }
+
+        if (added.length) {
+            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, added);
+        }
+        if (removed.length) {
+            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, removed);
+        }
+
         if (active.length === 0) {
             this.log.log("Every sensor is disabled in the configuration, nothing to publish.");
-            callback([]);
+        } else {
+            this.log.log("Publishing " + active.length + " of " + SENSORS.length + " sensors.");
+        }
+    }
+
+    startPolling() {
+        if (!this.valid || this.accessories.length === 0) {
             return;
         }
 
-        this.log.log("Publishing " + active.length + " of " + sensors.length + " sensors.");
-
         // Only poll an endpoint when something still consumes it.
-        var needRealtime = active.some(function (sensor) { return sensor.source === "realtime"; });
-        var needFlow = active.some(function (sensor) { return sensor.source === "flow"; });
-        var needGrid = active.some(function (sensor) { return sensor.source === "grid"; });
+        var active = this.accessories.map(function (accessory) { return accessory.sensor; });
+        this.needRealtime = active.some(function (sensor) { return sensor.source === "realtime"; });
+        this.needFlow = active.some(function (sensor) { return sensor.source === "flow"; });
+        this.needGrid = active.some(function (sensor) { return sensor.source === "grid"; });
 
-        let api;
-        api = new SunsynkAPI(this.username, this.password, this.appKey, this.appSecret, this.log);
+        this.client = new SunsynkAPI(this.username, this.password, this.appKey, this.appSecret, this.log);
 
-        this.SunsynkAPI = api;
+        // Discovery is retried on every poll until it succeeds, so the plugin
+        // recovers on its own once the API comes back instead of needing a
+        // restart.
+        this.discovered = false;
 
-        var allacc = [];
+        this.processData();
 
-        for (var i = 0; i < active.length; i++) {
-            allacc.push(new SunsynkAccessory(this.log, active[i]));
-        }
+        setInterval(() => {
+            this.processData();
+        }, this.pollInterval);
+    }
 
-        callback(allacc);
-        platform = this;
+    async discover() {
+        var api = this.client;
 
-        // The accessories are published before the API is ever contacted, so an
-        // outage at startup leaves them in place in HomeKit with their rooms and
-        // automations intact rather than removing them. Discovery is retried on
-        // every poll until it succeeds, so the plugin recovers on its own once
-        // the API comes back instead of needing a restart.
-        var discovered = false;
+        try {
+            await api.login();
 
-        async function discover() {
-            try {
-                await api.login();
-
-                api.body = {
-                    page: 1,
-                    limit: 20
-                };
-                var result = await api.get("/plants", api.body, null);
-                if (!result || !Array.isArray(result.infos) || result.infos.length === 0) {
-                    platform.log.warn("[Sunsynk] No plants were returned by the API, retrying at the next poll.");
-                    return false;
-                }
-
-                plant_id = result.infos[0].id;
-
-                // The inverter serial number is only needed for the grid endpoint.
-                // Search every API state so a fault or offline inverter does not
-                // make the child bridge crash during startup.
-                if (needGrid) {
-                    var inverterStatuses = [1, 2, 3, 4, 0];
-                    var inverter;
-
-                    for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
-                        var par = {
-                            page: 1,               // current page number (required)
-                            limit: 1,              // page size (required)
-                            status: inverterStatuses[statusIndex],
-                            plantId: plant_id,     // Plant ID (optional)
-                            type: -1,              // 1: grid, 2: ess, -1: all (required)
-                        };
-
-                        var in_result = await api.get("/inverters", par, null);
-                        if (in_result && Array.isArray(in_result.infos) && in_result.infos.length > 0) {
-                            inverter = in_result.infos[0];
-                            break;
-                        }
-                    }
-
-                    // Every state answered and none of them held an inverter, so
-                    // this is the API's real answer rather than an outage. Stop
-                    // asking for grid data instead of retrying it forever.
-                    if (!inverter || !inverter.sn) {
-                        platform.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
-                        needGrid = false;
-                    } else {
-                        plant_sn = inverter.sn;
-                    }
-                }
-
-                return true;
-            } catch (err) {
-                platform.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", describeError(err));
+            var result = await api.get("/plants", { page: 1, limit: 20 }, null);
+            if (!result || !Array.isArray(result.infos) || result.infos.length === 0) {
+                this.log.warn("[Sunsynk] No plants were returned by the API, retrying at the next poll.");
                 return false;
             }
+
+            var plant = this.choose("plant", result.infos, this.config.options.plantId, function (info) { return info.id; }, "Plant ID");
+            if (!plant) {
+                this.log.error("[Sunsynk] Fix the plant ID in the config and restart Homebridge.");
+                this.stopped = true;
+                return false;
+            }
+            this.plantId = plant.id;
+
+            // The inverter serial number is only needed for the grid endpoint.
+            // Search every API state so a fault or offline inverter does not
+            // make the child bridge crash during startup.
+            if (this.needGrid) {
+                var inverterStatuses = [1, 2, 3, 4, 0];
+                var inverters = [];
+
+                for (var statusIndex = 0; statusIndex < inverterStatuses.length; statusIndex++) {
+                    var par = {
+                        page: 1,               // current page number (required)
+                        limit: 20,             // page size (required)
+                        status: inverterStatuses[statusIndex],
+                        plantId: this.plantId, // Plant ID (optional)
+                        type: -1,              // 1: grid, 2: ess, -1: all (required)
+                    };
+
+                    var in_result = await api.get("/inverters", par, null);
+                    if (in_result && Array.isArray(in_result.infos)) {
+                        for (var info of in_result.infos) {
+                            if (info && info.sn && !inverters.some(function (known) { return known.sn === info.sn; })) {
+                                inverters.push(info);
+                            }
+                        }
+                    }
+                }
+
+                // Every state answered and none of them held an inverter, so
+                // this is the API's real answer rather than an outage. Stop
+                // asking for grid data instead of retrying it forever.
+                var inverter = inverters.length ? this.choose("inverter", inverters, this.config.options.inverterSn, function (info) { return info.sn; }, "Inverter Serial Number") : null;
+                if (!inverter) {
+                    if (!inverters.length) {
+                        this.log.warn("[Sunsynk] No inverter was returned by the API; Grid Power will be unavailable.");
+                    } else {
+                        this.log.error("[Sunsynk] Grid Power will be unavailable until the inverter serial number in the config is fixed.");
+                    }
+                    this.needGrid = false;
+                } else {
+                    this.inverterSn = inverter.sn;
+                }
+            }
+
+            return true;
+        } catch (err) {
+            this.log.warn("[Sunsynk] Setup failed, retrying at the next poll:", describeError(err));
+            return false;
+        }
+    }
+
+    // Pick the plant or inverter to use. With an ID configured, use that one,
+    // or log what the account has when it is not there. Without one, use the
+    // first, and when there is more than one, list them so the right ID can
+    // be copied into the config.
+    choose(kind, infos, wanted, idOf, setting) {
+        // Inverters are often named after their serial number, so only show a
+        // name that adds something.
+        var describe = function (info) {
+            var id = idOf(info);
+            var name = info.name || info.alias;
+            return id + (name && String(name) !== String(id) ? " (" + name + ")" : "");
+        };
+
+        if (wanted !== undefined && wanted !== null && String(wanted).trim() !== "") {
+            var match = infos.find(function (info) { return String(idOf(info)) === String(wanted).trim(); });
+            if (match) {
+                this.log.log("Using " + kind + " " + describe(match) + ".");
+                return match;
+            }
+
+            this.log.error("[Sunsynk] The configured " + kind + " " + wanted + " was not found. This account has: " + infos.map(describe).join(", ") + ".");
+            return null;
         }
 
-        async function processData(data) {
-            try {
-                if (!discovered) {
-                    discovered = await discover();
+        if (infos.length > 1) {
+            this.log.log("Found " + infos.length + " " + kind + "s: " + infos.map(describe).join(", ") + ". Set \"" + setting + "\" in the config to choose one.");
+        }
 
-                    if (!discovered) {
-                        return;
-                    }
-                }
+        this.log.log("Using " + kind + " " + describe(infos[0]) + ".");
+        return infos[0];
+    }
 
-                var real_result = needRealtime ? await api.get(`/plant/${plant_id}/realtime`, null, null) : null;
+    async processData() {
+        // A configured plant or inverter that the account does not have will
+        // not appear by retrying, so stop until the config is fixed.
+        if (this.stopped) {
+            return;
+        }
 
-                var batt_result = needFlow ? await api.get(`/plant/energy/${plant_id}/flow`, null, null) : null;
+        if (!this.discovered) {
+            this.discovered = await this.discover();
 
-                var realAC_result = needGrid ? await api.get(`/inverter/grid/${plant_sn}/realtime`, null, null) : null;
-
-                for (var i = 0; i < allacc.length; i++) {
-                    if (allacc[i].type == 'pv') {
-                        switch (allacc[i].name) {
-                            case 'Current PV Power W':
-                                allacc[i].changeHandler(real_result.pac);
-                                break;
-
-                            case 'Today PV Electricity kWh':
-                                allacc[i].changeHandler(real_result.etoday);
-                                break;
-
-                            case 'Month PV Electricity kWh':
-                                allacc[i].changeHandler(real_result.emonth);
-                                break;
-
-                            case 'Year PV Electricity kWh':
-                                allacc[i].changeHandler(real_result.eyear);
-                                break;
-
-                            case 'Total PV Electricity kWh':
-                                allacc[i].changeHandler(real_result.etotal);
-                                break;
-
-                            case 'Battery Power W':
-                                // The API reports charging as negative power, which the
-                                // light sensor would clamp to its 0.0001 minimum. Direction
-                                // is already shown by the Battery SOC charging state.
-                                platform.log.debug("Raw battPower:" + batt_result.battPower);
-                                allacc[i].changeHandler(Math.abs(Number(batt_result.battPower)) || 0);
-                                break;
-
-                            case 'Load Power W':
-                                allacc[i].changeHandler(batt_result.loadOrEpsPower);
-                                break;
-                        }
-                    }
-                    else if (allacc[i].type == 'batt') {
-                        allacc[i].changeHandler1(batt_result.soc);
-
-                        var state = Characteristic.ChargingState.NOT_CHARGING;
-
-                        if (batt_result.toBat) {
-                            state = Characteristic.ChargingState.CHARGING;
-                        }
-                        else if (batt_result.batTo) {
-                            state = Characteristic.ChargingState.NOT_CHARGING;
-                        }
-
-                        allacc[i].changeChargeState(state);
-
-                        allacc[i].changeLevel(batt_result.soc < lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL)
-
-                        allacc[i].changeHandler(batt_result.soc);
-
-                    }
-                    else if (allacc[i].type == 'pow') {
-                        switch (allacc[i].name) {
-                            case 'Grid Power':
-                                if (realAC_result) {
-                                    handler_change = true;
-                                    allacc[i].changeHandler(realAC_result.acRealyStatus);
-                                }
-                                break;
-                        }
-                    }
-                }
-            } catch (err) {
-                platform.log.warn('[Sunsynk] Polling failed:', describeError(err));
+            if (!this.discovered) {
+                return;
             }
         }
 
-        processData();
+        // Each endpoint is fetched on its own, so one that fails only leaves
+        // its own sensors stale for this poll instead of all of them.
+        var endpoints = {
+            realtime: this.needRealtime && `/plant/${this.plantId}/realtime`,
+            flow: this.needFlow && `/plant/energy/${this.plantId}/flow`,
+            grid: this.needGrid && `/inverter/grid/${this.inverterSn}/realtime`
+        };
 
-        let timer = setInterval(function () {
-            processData();
-        }, pollInterval);
+        for (var source of Object.keys(endpoints)) {
+            if (!endpoints[source]) {
+                continue;
+            }
+
+            try {
+                var data = await this.client.get(endpoints[source], null, null);
+
+                for (var accessory of this.accessories) {
+                    if (accessory.sensor.source === source) {
+                        accessory.update(data);
+                    }
+                }
+            } catch (err) {
+                this.log.warn('[Sunsynk] Polling failed:', describeError(err));
+            }
+        }
     }
 }
 
-function SunsynkAccessory(log, config) {
-    this.log = log;
+// One sensor, backed by a Homebridge platform accessory. The services and
+// characteristics are the ones the static platform created, in the same
+// shape, so HomeKit keeps recognising them.
+class SunsynkAccessory {
+    constructor(platform, accessory, sensor) {
+        var Service = platform.api.hap.Service;
+        var Characteristic = platform.api.hap.Characteristic;
 
-    this.name = config["name"];
-    this.type = config["type"];
+        this.platform = platform;
+        this.accessory = accessory;
+        this.sensor = sensor;
+        this.Characteristic = Characteristic;
 
-    var shasum = crypto.createHash('sha1');
-    shasum.update(this.name);
+        var shasum = crypto.createHash('sha1');
+        shasum.update(sensor.name);
+        this.sn = shasum.digest('base64');
+        platform.log.log('Computed SN: ' + this.sn);
 
-    this.sn = shasum.digest('base64');
-    log.log('Computed SN: ' + this.sn);
-}
-
-SunsynkAccessory.prototype = {
-    getServices: function () {
-        const me = this;
-
-        var service, newService, changeAction, changeAction1, changeState, changeLevel;
-
-        var informationService = new Service.AccessoryInformation();
-
-        informationService
-            .setCharacteristic(Characteristic.Name, this.name)
+        accessory.getService(Service.AccessoryInformation)
+            .setCharacteristic(Characteristic.Name, sensor.name)
             .setCharacteristic(Characteristic.Manufacturer, "Sunsynk")
-            .setCharacteristic(Characteristic.Model, "Sunsynk"/*+ (this.accessoryType === ""?"":"") */)
+            .setCharacteristic(Characteristic.Model, "Sunsynk")
             .setCharacteristic(Characteristic.SerialNumber, this.sn);
 
-        switch (this.type) {
+        switch (sensor.type) {
             case "pv":
-                service = new Service.LightSensor();
-                changeAction = function (newvalue) {
-                    service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                        .setValue(newvalue);
-                    service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-                        .updateValue(newvalue);
-                }
-
-                this.changeHandler = function (value) {
-                    if (value < 0.0001) {
-                        value = 0.0001
-                    }
-
-                    changeAction(value);
-                    platform.log.debug("New Value:" + value);
-                }.bind(this);
-
-                return [informationService, service];
+                this.service = accessory.getService(Service.LightSensor) || accessory.addService(Service.LightSensor);
+                break;
 
             case "pow":
-                service = new Service.Outlet();
+                this.service = accessory.getService(Service.Outlet) || accessory.addService(Service.Outlet);
 
-                changeAction = function (value) {
-                    service.getCharacteristic(Characteristic.On)
-                        .setValue(value);
-                    service.getCharacteristic(Characteristic.On)
-                        .updateValue(value);
-                }
-
-                this.changeHandler = function (value) {
-                    changeAction(value);
-                    platform.log.debug("New Status:" + value);
-                }.bind(this);
-
-                service.getCharacteristic(Characteristic.On)
-                    .on('set', function (value, callback) {
-                        // Get the current state of the characteristic
-                        const currentState = service.getCharacteristic(Characteristic.On).value;
-
-                        if (handler_change) {
-                            handler_change = false;
-                            // Allow state change if triggered by handler
-                            platform.log.debug("State changed via handler: " + value);
-                            callback(null);
-                        }
-                        else {
-                            handler_change = false;
-                            // Prevent state change by resetting to the current state
-                            platform.log.debug(`Button pressed, keeping state unchanged: ${currentState}`);
-                            callback(null); // Acknowledge the action without error
-                            process.nextTick(() => {
-                                service.getCharacteristic(Characteristic.On).updateValue(currentState);
-                            });
-                        }
+                // Grid Power shows the grid relay state, which HomeKit cannot
+                // change. Accept the tap, then put the switch back.
+                var on = this.service.getCharacteristic(Characteristic.On);
+                on.onSet(function () {
+                    var current = on.value;
+                    platform.log.debug(`Button pressed, keeping state unchanged: ${current}`);
+                    // setImmediate runs after HAP has stored the tapped value.
+                    setImmediate(function () {
+                        on.updateValue(current);
                     });
-
-                return [informationService, service, newService];
+                });
+                break;
 
             case "batt":
-                service = new Service.HumiditySensor();
-
-                changeAction = function (value) {
-                    service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
-                        .setValue(value);
-                    service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
-                        .updateValue(value);
-                }
-
-
-                newService = new Service.Battery();
-                changeAction1 = function (newvalue) {
-                    newService.getCharacteristic(Characteristic.BatteryLevel)
-                        .setValue(newvalue);
-                    newService.getCharacteristic(Characteristic.BatteryLevel)
-                        .updateValue(newvalue);
-                }
-
-                changeLevel = function (newlevel) {
-                    newService.getCharacteristic(Characteristic.StatusLowBattery)
-                        .setValue(newlevel);
-                    newService.getCharacteristic(Characteristic.StatusLowBattery)
-                        .updateValue(newlevel);
-                }
-
-                changeState = function (newvalue) {
-                    newService.getCharacteristic(Characteristic.ChargingState)
-                        .setValue(newvalue);
-                    newService.getCharacteristic(Characteristic.ChargingState)
-                        .updateValue(newvalue);
-                }
-
-                this.changeHandler = function (value) {
-                    changeAction(value);
-                    platform.log.debug("New Value:" + value);
-                }.bind(this);
-
-                this.changeHandler1 = function (value) {
-                    changeAction1(value);
-                    platform.log.debug("New Value:" + value);
-                }.bind(this);
-
-                this.changeChargeState = function (value) {
-                    changeState(value);
-                    platform.log.debug("New State:" + value);
-                }.bind(this);
-
-                this.changeLevel = function (value) {
-                    changeLevel(value)
-                    platform.log.debug("New Level:" + value);
-                }.bind(this);
-
-                return [informationService, service, newService];
+                this.service = accessory.getService(Service.HumiditySensor) || accessory.addService(Service.HumiditySensor);
+                this.battery = accessory.getService(Service.Battery) || accessory.addService(Service.Battery);
+                break;
         }
+    }
+
+    update(data) {
+        if (!data) {
+            return;
+        }
+
+        var Characteristic = this.Characteristic;
+        var log = this.platform.log;
+
+        switch (this.sensor.id) {
+            case "currentPvPower":
+                this.setLight(data.pac);
+                break;
+
+            case "todayPvEnergy":
+                this.setLight(data.etoday);
+                break;
+
+            case "monthPvEnergy":
+                this.setLight(data.emonth);
+                break;
+
+            case "yearPvEnergy":
+                this.setLight(data.eyear);
+                break;
+
+            case "totalPvEnergy":
+                this.setLight(data.etotal);
+                break;
+
+            case "batteryPower":
+                // The API reports charging as negative power, which the
+                // light sensor would clamp to its 0.0001 minimum. Direction
+                // is already shown by the Battery SOC charging state.
+                log.debug("Raw battPower:" + data.battPower);
+                this.setLight(Math.abs(Number(data.battPower)) || 0);
+                break;
+
+            case "loadPower":
+                this.setLight(data.loadOrEpsPower);
+                break;
+
+            case "batterySoc":
+                var soc = Number(data.soc);
+                if (data.soc === undefined || data.soc === null || !Number.isFinite(soc)) {
+                    log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+                    break;
+                }
+
+                var state = Characteristic.ChargingState.NOT_CHARGING;
+
+                if (data.toBat) {
+                    state = Characteristic.ChargingState.CHARGING;
+                }
+
+                this.battery.getCharacteristic(Characteristic.BatteryLevel).updateValue(soc);
+                this.battery.getCharacteristic(Characteristic.ChargingState).updateValue(state);
+                this.battery.getCharacteristic(Characteristic.StatusLowBattery).updateValue(soc < this.platform.lowbatt ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
+                this.service.getCharacteristic(Characteristic.CurrentRelativeHumidity).updateValue(soc);
+                log.debug("New Value:" + soc);
+                break;
+
+            case "gridPower":
+                if (data.acRealyStatus === undefined || data.acRealyStatus === null) {
+                    log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+                    break;
+                }
+                this.service.getCharacteristic(Characteristic.On).updateValue(data.acRealyStatus);
+                log.debug("New Status:" + data.acRealyStatus);
+                break;
+        }
+    }
+
+    setLight(value) {
+        // A field missing from the response would reach HomeKit as undefined,
+        // which HAP rejects with a warning. Keep the last value instead.
+        value = Number(value);
+        if (!Number.isFinite(value)) {
+            this.platform.log.debug("No value for " + this.sensor.name + ", keeping the last one.");
+            return;
+        }
+
+        if (value < 0.0001) {
+            value = 0.0001;
+        }
+
+        this.service.getCharacteristic(this.Characteristic.CurrentAmbientLightLevel).updateValue(value);
+        this.platform.log.debug("New Value:" + value);
     }
 }
