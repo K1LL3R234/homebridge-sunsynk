@@ -74,6 +74,62 @@ When every sensor that uses a given part of the Sunsynk API is switched off, tha
 
 **Turning a sensor off removes it from HomeKit on the next restart.** Anything attached to it in the Home app goes with it: automations, scenes, favourites, its room and any custom name you gave it. Turning it back on later adds it again as a new accessory, so you would need to set those up again.
 
+### More than one plant or inverter
+
+The plugin uses the first plant on the Sunsynk account and the first inverter in that plant. When there is more than one, the Homebridge log lists each of them with its ID at startup. Copy the one you want into `plantId` or `inverterSn`:
+
+```json
+"options": {
+    "username": "",
+    "password": "",
+    "plantId": "123456",
+    "inverterSn": "2301234567"
+}
+```
+
+If a configured plant ID is not on the account, the log says so and lists the plants it found, and the plugin stops polling until the config is fixed. A configured inverter that is not found only switches off what needs the inverter: Grid Power and the Apple Home Energy devices below.
+
+## Apple Home Energy (beta)
+
+> **Beta.** This relies on how iOS 27's Home app treats Matter electrical devices, which Apple has not documented. It works on the setup it was tested on, but an iOS or Homebridge update may change what the Home app shows or stop it working. Please report what you see in an issue.
+
+On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app shows under its Energy filter:
+
+| Device | What it reports | How the Home app uses it |
+| --- | --- | --- |
+| Sunsynk Grid | Grid power, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
+| Sunsynk Load | House load power and lifetime energy used | Listed under All Home |
+| Sunsynk Solar | Inverter AC output as negative power (0 W at night, rather than the inverter's own standby draw), and its lifetime energy produced | Listed under All Home |
+
+The Energy filter shows live power only. The lifetime totals are published as well, but the Home app did not show any energy history for them in testing outside the US, where Apple's Energy tab is not offered.
+
+To set it up:
+
+1. Run the plugin as a child bridge and switch Matter on for that bridge in the Homebridge settings.
+2. Restart Homebridge, then add the bridge to the Home app using its **Matter** QR code or pairing code. This is a separate pairing from the HomeKit one.
+3. Set the poll interval to 1 minute. Sunsynk's cloud updates about once a minute, so polling faster gains nothing.
+
+The devices are on by default once Matter is on, and each one can be switched off in the `matter` block. Load and solar are sensors by default: they are listed under All Home but have no room tile. Set `loadAs` or `pvAs` to `outlet` to get a room tile with live watts instead; its switch stays on, because there is nothing to switch. In testing, an outlet then no longer appears under All Home, so it is one or the other.
+
+**After changing the `matter` block, remove the bridge from the Home app and pair it again.** The Home app picks up a device removed from a paired Matter bridge, but often ignores one added to it, and switching between sensor and outlet does both. Rooms and custom names need setting again after pairing. If pairing hangs after removing the bridge, restart Homebridge and try again.
+
+```json
+"options": {
+    "username": "",
+    "password": "",
+    "pollInterval": 1,
+    "matter": {
+        "grid": true,
+        "load": true,
+        "loadAs": "sensor",
+        "pv": true,
+        "pvAs": "sensor"
+    }
+}
+```
+
+The HomeKit sensors keep working alongside. If you only want the Matter devices, switch the HomeKit ones off with the `sensors` block. Battery readings are not published over Matter yet, because the Home app shows Matter batteries as "Not Supported"; Battery SOC stays a HomeKit sensor.
+
 ## Thanks
 
 A big thank you to [atdr](https://github.com/atdr) for the contributions to this plugin: the option to choose which sensors get published, and the fixes for the plugin stopping after a failed poll and crashing when the inverter is not in its normal state. The reports and the pull requests were both thorough and tested on real hardware, and the plugin is a lot more robust for it.
