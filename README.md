@@ -97,7 +97,7 @@ On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin 
 
 | Device | What it reports | How the Home app uses it |
 | --- | --- | --- |
-| Sunsynk Grid | Grid power, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
+| Sunsynk Grid | Grid power as the Sunsynk app's power flow shows it, positive while importing and negative while exporting, plus the lifetime imported and exported energy | The whole home figure under All Home |
 | Sunsynk Load | House load power and lifetime energy used | Listed under All Home |
 | Sunsynk Solar | Power from the panels as negative power (a generator in Matter), and their lifetime energy produced | Listed under All Home |
 
