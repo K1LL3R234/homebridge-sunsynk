@@ -2,6 +2,11 @@
 
 This change log documents all release versions of homebridge-sunsynk
 
+### 1.3.0-beta.2 (2026-11-13)
+
+- **FIX** - Apple Home Energy (beta): "Sunsynk Solar" now shows the power coming from the panels. It showed the inverter's AC output, which includes the battery, so with the grid at 0 W it simply matched the house load, and it would show solar at night while the battery discharged. The inverter's AC output is no longer polled.
+- **FIX** - Apple Home Energy (beta): "Sunsynk Grid" now shows grid power, taken from the plant's power flow, the same figure the Sunsynk app shows. It stayed at 0 W even while importing. It is still positive while importing and negative while exporting, and the lifetime imported and exported totals are unchanged.
+
 ### 1.3.0-beta.1 (2026-10-22)
 
 - **FEATURE** - Apple Home Energy (beta): on Homebridge 2.4.0 or later with Matter switched on for the bridge, the grid meter, the house load and the solar output are also published as Matter electrical devices, which the iOS 27 Home app shows under its Energy filter. The grid meter drives the All Home figure. Each device can be switched off, and load and solar can be shown as outlets for a room tile. See "Apple Home Energy (beta)" in the README. Nothing changes for bridges without Matter.
