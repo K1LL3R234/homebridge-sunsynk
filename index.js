@@ -254,7 +254,7 @@ class SunsynkPlatform {
         }
         this.sources = sources;
         // Everything but the plant endpoints is looked up by inverter.
-        this.needInverter = ["grid", "load", "output", "input"].some(function (source) { return sources.has(source); });
+        this.needInverter = ["grid", "load", "input"].some(function (source) { return sources.has(source); });
 
         this.client = new SunsynkAPI(this.username, this.password, this.appKey, this.appSecret, this.log);
 
@@ -410,7 +410,6 @@ class SunsynkPlatform {
             flow: `/plant/energy/${plant}/flow`,
             grid: sn && `/inverter/grid/${sn}/realtime`,
             load: sn && `/inverter/load/${sn}/realtime`,
-            output: sn && `/inverter/${sn}/realtime/output`,
             input: sn && `/inverter/${sn}/realtime/input`
         };
 
