@@ -4,7 +4,7 @@ const SunsynkAPI = require("./lib/sunsynkAPI");
 
 const LogUtil = require('./util/logutil');
 
-const { DEVICES: MATTER_DEVICES, MatterEnergyDevice, waitUntilRegistered } = require("./lib/matterEnergy");
+const { DEVICES: MATTER_DEVICES, MatterEnergyDevice } = require("./lib/matterEnergy");
 
 const PLUGIN_NAME = "homebridge-sunsynk";
 const PLATFORM_NAME = "Sunsynk";
@@ -189,10 +189,17 @@ class SunsynkPlatform {
         if (!enabled) {
             var message = "Matter is not enabled on this bridge, so the Apple Home Energy devices are not published.";
             if (this.config.options.matter !== undefined) {
-                this.log.log(message + " To use them, switch Matter on for this bridge in the Homebridge settings (Homebridge 2.4.0 or later).");
+                this.log.log(message + " To use them, switch Matter on for this bridge in the Homebridge settings (Homebridge 2.5.0 or later).");
             } else {
                 this.log.debug(message);
             }
+            return Promise.resolve();
+        }
+
+        // Homebridge 2.5.0 added the energy device types, and made registering
+        // resolve once the devices exist on a child bridge.
+        if (!matter.deviceTypes || !matter.deviceTypes.ElectricalMeter) {
+            this.log.warn("[Sunsynk] The Apple Home Energy devices need Homebridge 2.5.0 or later, so they are not published. Update Homebridge to use them.");
             return Promise.resolve();
         }
 
@@ -222,10 +229,6 @@ class SunsynkPlatform {
                 }
                 if (accessories.length) {
                     await matter.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories);
-                    var ready = await waitUntilRegistered(matter, accessories.map(function (accessory) { return accessory.UUID; }), 30000);
-                    if (!ready) {
-                        this.log.warn("[Sunsynk] The Apple Home Energy devices took more than 30 seconds to register; the first readings may be missed.");
-                    }
                 }
                 this.log.log("Publishing " + accessories.length + " of " + MATTER_DEVICES.length + " Apple Home Energy devices over Matter (beta)" +
                     (accessories.length ? ": " + this.matterDevices.map(function (device) { return device.device.name + (device.asOutlet ? " (outlet)" : ""); }).join(", ") : "") + ".");

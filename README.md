@@ -93,7 +93,7 @@ If a configured plant ID is not on the account, the log says so and lists the pl
 
 > **Beta.** This relies on how iOS 27's Home app treats Matter electrical devices, which Apple has not documented. It works on the setup it was tested on, but an iOS or Homebridge update may change what the Home app shows or stop it working. Please report what you see in an issue.
 
-On Homebridge 2.4.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app shows under its Energy filter:
+On Homebridge 2.5.0 or later with Matter switched on for the bridge, the plugin also publishes three Matter devices that the Home app shows under its Energy filter:
 
 | Device | What it reports | How the Home app uses it |
 | --- | --- | --- |
@@ -112,6 +112,8 @@ To set it up:
 The devices are on by default once Matter is on, and each one can be switched off in the `matter` block. Load and solar are sensors by default: they are listed under All Home but have no room tile. Set `loadAs` or `pvAs` to `outlet` to get a room tile with live watts instead; its switch stays on, because there is nothing to switch. In testing, an outlet then no longer appears under All Home, so it is one or the other.
 
 **After changing the `matter` block, remove the bridge from the Home app and pair it again.** The Home app picks up a device removed from a paired Matter bridge, but often ignores one added to it, and switching between sensor and outlet does both. Rooms and custom names need setting again after pairing. If pairing hangs after removing the bridge, restart Homebridge and try again.
+
+**Upgrading from 1.3.0-beta.1 or 1.3.0-beta.2:** the grid meter is now published with Matter's own electrical meter type, as a new device, so remove the bridge from the Home app and pair it again after the upgrade.
 
 ```json
 "options": {
